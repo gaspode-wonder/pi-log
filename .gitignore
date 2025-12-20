@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.env
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# systemd artifacts
+*.service~
+
+# Editor/OS files
+.DS_Store
+Thumbs.db
+
