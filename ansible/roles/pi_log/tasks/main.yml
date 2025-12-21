@@ -1,0 +1,45 @@
+---
+- name: Ensure pi-log directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: pi
+    group: pi
+    mode: "0755"
+  loop:
+    - /opt/pi-log
+    - /var/lib/pi-log
+    - /etc/pi-log
+
+- name: Deploy pi-log code
+  copy:
+    src: "{{ playbook_dir }}/../../"
+    dest: /opt/pi-log
+    owner: pi
+    group: pi
+    mode: "0755"
+  notify: Restart pi-log
+
+- name: Deploy environment file
+  template:
+    src: env.j2
+    dest: /etc/pi-log/env
+    owner: pi
+    group: pi
+    mode: "0600"
+  notify: Restart pi-log
+
+- name: Deploy systemd service
+  template:
+    src: pi-log.service.j2
+    dest: /etc/systemd/system/pi-log.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart pi-log
+
+- name: Enable and start service
+  systemd:
+    name: pi-log.service
+    enabled: yes
+    state: started

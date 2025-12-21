@@ -1,29 +1,71 @@
-# Python
+# ================================
+#   Python Environments
+# ================================
+.venv/
+venv/
+env/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.egg-info/
-.env
 
-# Python virtual environment
-.venv/
-venv/
-ENV/
-env/
+# ================================
+#   pytest
+# ================================
+.pytest_cache/
+# Uncomment if pytest.ini should be local-only
+# pytest.ini
 
-# SQLite
-*.db
-*.db-shm
-*.db-wal
+# ================================
+#   pre-commit
+# ================================
+# Hook environments (auto-generated)
+.cache/pre-commit/
+.pre-commit-config.yaml.bak
 
-# Logs
-*.log
+# ================================
+#   pyenv
+# ================================
+.python-version
 
-# systemd artifacts
-*.service~
-
-# Editor/OS files
+# ================================
+#   macOS Development Artifacts
+# ================================
 .DS_Store
-Thumbs.db
+.AppleDouble
+.LSOverride
+# macOS metadata on external drives
+._*
 
+# ================================
+#   VS Code
+# ================================
+.vscode/
+*.code-workspace
+
+# ================================
+#   Logs & Runtime Output
+# ================================
+*.log
+logs/
+tmp/
+run/
+
+# ================================
+#   Raspberry Pi Deployment
+# ================================
+# Systemd build artifacts (but NOT your .service files)
+*.service~
+*.service.save
+
+# Pi-specific temp files
+*.swp
+*.swo
+
+# ================================
+#   Ansible
+# ================================
+# Local facts, cache, and retry files
+*.retry
+.cache/
+.fact_cache/

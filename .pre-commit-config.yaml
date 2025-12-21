@@ -1,0 +1,10 @@
+default_language_version:
+  python: python3.10
+
+repos:
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v24.2.0
+    hooks:
+      - id: ansible-lint
+        name: ansible-lint (pi-log)
+        files: ^ansible/

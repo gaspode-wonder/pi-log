@@ -1,0 +1,22 @@
+[Unit]
+Description=Pi-Log Geiger Counter Ingestion Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/pi-log
+ExecStart=/usr/bin/python3 -m pi_log.geiger_reader \
+    --device /dev/ttyUSB0 \
+    --db /var/lib/pi-log/readings.db \
+    --api-url https://logexp.example.com/api/ingest \
+    --api-token ${PI_LOG_API_TOKEN}
+
+Restart=on-failure
+RestartSec=5
+
+EnvironmentFile=/etc/pi-log/env
+
+[Install]
+WantedBy=multi-user.target
