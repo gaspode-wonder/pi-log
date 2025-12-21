@@ -1,5 +1,5 @@
 from unittest.mock import patch, mock_open
-from app.logging import get_logger
+from app.logging_loader import get_logger
 
 
 @patch("app.logging.os.path.exists", return_value=True)

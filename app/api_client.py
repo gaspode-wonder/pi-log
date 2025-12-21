@@ -1,6 +1,5 @@
 import requests
-from app.logging import get_logger
-
+from app.logging_loader import get_logger
 log = get_logger(__name__)
 
 

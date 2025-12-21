@@ -1,11 +1,13 @@
+from xml.sax import handler
 import serial
 from app.csv_parser import parse_geiger_csv
 
 
 class SerialReader:
-    def __init__(self, device_path: str, handler):
-        self.device_path = device_path
-        self.handler = handler
+    def __init__(self, device, baudrate, handler=None):
+        self.device = device
+        self.baudrate = baudrate
+        self.handler = handler or (lambda line: None)
 
     def run(self):
         ser = serial.Serial(self.device_path, 9600, timeout=1)

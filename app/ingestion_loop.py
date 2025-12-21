@@ -4,8 +4,7 @@ from app.csv_parser import parse_geiger_csv
 from app.sqlite_store import SQLiteStore
 from app.api_client import APIClient
 from app.config import settings
-from app.logging import get_logger
-
+from app.logging_loader import get_logger
 log = get_logger(__name__)
 
 

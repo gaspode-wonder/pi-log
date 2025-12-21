@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from app.logging import get_logger
+from app.logging_loader import get_logger
 
 
 def test_logger_initializes_without_error():

@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime
-from app.logging import get_logger
+from app.logging_loader import get_logger
 
 log = get_logger(__name__)
 
@@ -19,8 +19,10 @@ class SQLiteStore:
         self._init_db()
 
     def _connect(self):
-        """Internal helper to open a connection."""
-        return sqlite3.connect(self.db_path)
+        """Internal helper to open a connection with row_factory enabled."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
 
     def _init_db(self):
         """Create the readings table if it doesn't exist."""
@@ -46,10 +48,7 @@ class SQLiteStore:
         log.debug("SQLite database initialized")
 
     def insert_record(self, reading: dict) -> int:
-        """
-        Insert a parsed reading into the database.
-        Returns the new record ID.
-        """
+        """Insert a parsed reading into the database and return its ID."""
         conn = self._connect()
         cur = conn.cursor()
 
@@ -77,7 +76,6 @@ class SQLiteStore:
     def get_unpushed_readings(self):
         """Return all readings where pushed = 0."""
         conn = self._connect()
-        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
         cur.execute(
