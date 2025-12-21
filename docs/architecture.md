@@ -1,94 +1,112 @@
-# Architecture Overview
+# pi-log Architecture
 
-This document describes the ingestion architecture for the pi-log Raspberry Pi pipeline.
-
----
-
-## Data Flow
-
-```
-MightyOhm Geiger Counter → Raspberry Pi → SQLite → Push API → LogExp Web App → Postgres
-```
-
-The Geiger counter outputs CSV lines:
-
-```
-CPS, #####, CPM, #####, uSv/hr, ###.##, SLOW|FAST|INST
-```
-
-The Pi parses these fields and stores them locally before pushing to the LogExp server.
+This document provides a high-level overview of the pi-log system, including data flow, shell/runtime behavior, and supporting infrastructure. It is intended for future maintainers who need to understand how the system is structured and how its components interact.
 
 ---
 
-## Components
+## 1. System Overview
 
-### 1. Serial Reader
-- Reads `/dev/ttyUSB0`
-- Parses CSV fields
-- Inserts rows into SQLite
+pi-log consists of:
 
-### 2. SQLite Database
-Schema:
-
-```
-id INTEGER PRIMARY KEY
-timestamp TEXT
-cps INTEGER
-cpm INTEGER
-usv REAL
-mode TEXT
-pushed INTEGER
-```
-
-### 3. Push Client
-- Selects rows where `pushed = 0`
-- Sends them to `/api/geiger/push`
-- Marks rows as pushed on success
-
-### 4. systemd Service
-Ensures:
-- Auto‑start on boot
-- Auto‑restart on failure
-- No TTY or job‑control issues
-
-### 5. LogExp Web App
-- Receives push payloads
-- Inserts into Postgres
-- Optional pull fallback
+- A macOS development environment using:
+  - VS Code
+  - pyenv
+  - Python 3.9 (runtime)
+  - Python 3.10 (pre-commit hooks)
+- A Raspberry Pi 3 deployment target running:
+  - Python 3.9
+  - systemd-managed ingestion service
+  - serial device reader
+  - SQLite or remote API push client
 
 ---
 
-## Diagram (Mermaid)
+## 2. High-Level Architecture Diagram
 
 ```mermaid
 flowchart LR
-    GC[MightyOhm Geiger Counter\nCSV Output]
-    PI[Raspberry Pi 3\nSerial Reader + SQLite\nPush Client]
-    DBPi[(SQLite DB\nreadings)]
-    WEB[LogExp Web App\n(Flask in Docker)]
-    DBWeb[(Postgres\ngeiger_readings)]
 
-    GC --> |CPS,CPM,uSv,MODE| PI
-    PI --> |INSERT| DBPi
-    PI --> |POST /api/geiger/push| WEB
-    WEB --> |INSERT| DBWeb
+A[Developer Workstation (macOS)] --> B[VS Code Terminal]
+B --> C{Shell}
+C -->|zsh| D[.zshrc]
+C -->|bash| E[No pyenv init]
 
-    subgraph Raspberry Pi
-        PI
-        DBPi
-    end
+D --> F[pyenv]
+F --> G[Python 3.9 (runtime)]
+F --> H[Python 3.10 (pre-commit)]
 
-    subgraph Server
-        WEB
-        DBWeb
-    end
+G --> I[.venv (project)]
+H --> J[pre-commit hook envs]
+
+I --> K[pi-log application]
+J --> L[ansible-lint hook]
+
+K --> M[Raspberry Pi 3 Deployment]
 ```
 
 ---
 
-## Reliability Model
+## 3. Sequence Diagram: Shell → pyenv → pre-commit
 
-- Local durability ensures no data loss during network outages  
-- Push‑first model minimizes latency  
-- Pull fallback ensures eventual consistency  
-- systemd ensures continuous operation  
+```mermaid
+sequenceDiagram
+    participant VSCode as VS Code Terminal
+    participant Shell as Shell (zsh or bash)
+    participant Zshrc as .zshrc
+    participant Pyenv as pyenv
+    participant PreCommit as pre-commit
+    participant Pip as pip
+
+    VSCode->>Shell: Launch terminal session
+    Shell-->>VSCode: Identify active shell
+
+    alt Shell = zsh
+        Shell->>Zshrc: Source .zshrc
+        Zshrc->>Pyenv: Initialize pyenv
+        Pyenv-->>Shell: python3.10 available
+    else Shell = bash
+        Shell-->>VSCode: pyenv not initialized
+    end
+
+    PreCommit->>Shell: Request python3.10
+    Shell->>Pyenv: Resolve interpreter
+    Pyenv-->>PreCommit: Provide shim path
+
+    PreCommit->>Pip: Install ansible-lint hook env
+    Pip-->>PreCommit: Success (if no version conflict)
+```
+
+---
+
+## 4. Component Summary
+
+### macOS Development Environment
+- Ensures reproducible builds
+- Provides pyenv-managed Python versions
+- Runs pre-commit hooks for linting and formatting
+
+### Raspberry Pi 3 Runtime
+- Executes ingestion pipeline
+- Runs systemd-managed services
+- Communicates with serial devices
+- Pushes data to LogExp API
+
+---
+
+## 5. Deployment Flow
+
+1. Developer writes code on macOS  
+2. pre-commit enforces linting and formatting  
+3. Code is deployed to Raspberry Pi  
+4. systemd starts ingestion service  
+5. Serial reader collects data  
+6. Data is stored locally or pushed to API  
+
+---
+
+## 6. Future Extensions
+
+- Add API authentication
+- Add remote logging
+- Add health checks for systemd
+- Add metrics export (Prometheus)

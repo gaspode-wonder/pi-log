@@ -122,7 +122,25 @@ Each reading stored in SQLite includes:
 - pushed (0/1)
 
 ---
+## Documentation
 
+The `docs/` directory contains all architecture, troubleshooting, and diagram resources for pi-log.
+
+### 📘 Architecture
+- [System Architecture](docs/architecture.md)
+- [System Overview Diagram](docs/diagrams/system-overview.md)
+- [Shell/pyenv/pre-commit Sequence Diagram](docs/diagrams/sequence.md)
+
+### 🛠 Troubleshooting
+- [Troubleshooting Guide](docs/troubleshooting.md)
+- Known failure modes
+- Diagnostic checklists
+- Environment validation steps
+
+These documents are designed for future maintainers and provide reproducible, platform-agnostic guidance for macOS development and Raspberry Pi deployment.
+
+
+---
 ## License
 
 MIT
