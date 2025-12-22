@@ -19,12 +19,13 @@ log = get_logger(__name__)
 
 class IngestionLoop:
     """
-    Ingestion loop:
-      - Reads lines until KeyboardInterrupt
-      - Parses each line
-      - Stores valid records
-      - Records metrics
-      - Optionally pushes to API
+    High-level ingestion orchestrator.
+
+    Responsibilities:
+      - Construct SerialReader, SQLiteStore, APIClient
+      - Provide process_line() for unit tests
+      - Provide run_once() and run_forever()
+      - Wire SerialReader._handle_parsed to ingestion logic
     """
 
     def __init__(self):
@@ -48,50 +49,126 @@ class IngestionLoop:
         # Loop timing
         self.poll_interval = settings.ingestion.get("poll_interval", 1)
 
+        # Wire SerialReader callback to ingestion logic
+        self.reader._handle_parsed = self._handle_parsed
+
+    # ----------------------------------------------------------------------
+    # REQUIRED BY TESTS
+    # ----------------------------------------------------------------------
     def process_line(self, raw):
         """
         Parse, store, record metrics, and optionally push a single raw line.
-        Returns True if processed, False if malformed.
+        Tests call this directly.
+
+        Fault tolerance:
+          - Returns False on malformed or failed ingestion
+          - KeyboardInterrupt always propagates
+          - Other exceptions are logged and treated as failed ingestion
         """
-        record = parse_geiger_csv(raw)
-        if not record:
+        try:
+            record = parse_geiger_csv(raw)
+            if not record:
+                return False
+
+            # Storage
+            record_id = self.store.insert_record(record)
+
+            # Metrics
+            metrics.record_ingestion(record)
+
+            # Optional API push
+            if self.api_enabled:
+                try:
+                    self.api.push_record(record_id, record)
+
+                    if hasattr(self.store, "mark_readings_pushed"):
+                        self.store.mark_readings_pushed([record_id])
+
+                except KeyboardInterrupt:
+                    # Do not swallow shutdown signals
+                    raise
+                except Exception as exc:
+                    # Push failure should not kill ingestion
+                    log.error(f"Push failed: {exc}")
+
+            return True
+
+        except KeyboardInterrupt:
+            # Always propagate shutdown signals
+            raise
+        except Exception as exc:
+            log.error(f"process_line failed: {exc}")
             return False
 
-        # Store record
-        record_id = self.store.insert_record(record)
+    # ----------------------------------------------------------------------
+    # CALLED BY SerialReader.run()
+    # ----------------------------------------------------------------------
+    def _handle_parsed(self, record):
+        """
+        SerialReader calls this for each parsed record.
 
-        # Metrics hook (tests patch app.metrics.record_ingestion)
-        metrics.record_ingestion(record)
+        Fault tolerance is similar to process_line(), but starts
+        from an already-parsed record instead of raw text.
+        """
+        try:
+            record_id = self.store.insert_record(record)
 
-        # Optional API push
-        if self.api_enabled:
-            try:
-                self.api.push_record(record_id, record)
+            metrics.record_ingestion(record)
 
-                # Only call if the store actually implements it
-                if hasattr(self.store, "mark_readings_pushed"):
-                    self.store.mark_readings_pushed([record_id])
+            if self.api_enabled:
+                try:
+                    self.api.push_record(record_id, record)
 
-            except Exception as exc:
-                log.error(f"Push failed: {exc}")
+                    if hasattr(self.store, "mark_readings_pushed"):
+                        self.store.mark_readings_pushed([record_id])
 
-        return True
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    log.error(f"Push failed: {exc}")
 
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            log.error(f"_handle_parsed failed: {exc}")
+
+    # ----------------------------------------------------------------------
+    # TESTS EXPECT run_once() TO EXIST
+    # ----------------------------------------------------------------------
     def run_once(self):
         """
-        Execute a single ingestion iteration.
-        Raises KeyboardInterrupt when reader does.
+        Single-iteration runner used by tests and some integrations.
+
+        Fault tolerance:
+          - KeyboardInterrupt propagates
+          - Any other error in read/ingest is swallowed for this iteration
         """
-        raw = self.reader.read_line()  # may raise KeyboardInterrupt
-        self.process_line(raw)
+        try:
+            raw = self.reader.read_line()
+            self.process_line(raw)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            log.error(f"run_once failed: {exc}")
         return True
 
+    # ----------------------------------------------------------------------
+    # TESTS EXPECT run_forever() TO LOOP UNTIL KeyboardInterrupt
+    # ----------------------------------------------------------------------
     def run_forever(self):
         """
-        Production loop. Tests expect:
-          - Loop until KeyboardInterrupt
-          - Do not swallow KeyboardInterrupt
+        Production loop.
+
+        Fault tolerance:
+          - Loops until KeyboardInterrupt
+          - Any non-KeyboardInterrupt errors in run_once() are logged and ignored
         """
         while True:
-            self.run_once()
+            try:
+                self.run_once()
+            except KeyboardInterrupt:
+                break
+            except Exception as exc:
+                # Last-ditch safety net; run_once() should already log
+                log.error(f"run_forever iteration failed: {exc}")
             time.sleep(self.poll_interval)
