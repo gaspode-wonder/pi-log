@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: pi_log
+  namespace: gaspode_wonder
+  author: Jeb Baugh
+  description: "Ingestion pipeline for pi-log"
+  license: MIT
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+
+dependencies: []

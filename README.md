@@ -1,14 +1,24 @@
 # pi-log
+# pi_log — Ansible Role
+
+[![CI](https://github.com/gaspode-wonder/pi-log/actions/workflows/ci.yml/badge.svg)](https://github.com/gaspode-wonder/pi-log/actions/workflows/ci.yml)
+[![Release](https://github.com/gaspode-wonder/pi-log/actions/workflows/release.yml/badge.svg)](https://github.com/gaspode-wonder/pi-log/actions/workflows/release.yml)
+[![Ansible Galaxy](https://img.shields.io/badge/galaxy-gaspode__wonder.pi__log-blue.svg)](https://galaxy.ansible.com/ui/standalone/roles/gaspode_wonder/pi_log)
+[![Galaxy Downloads](https://img.shields.io/ansible/role/d/gaspode_wonder/pi_log)](https://galaxy.ansible.com/ui/standalone/roles/gaspode_wonder/pi_log)
+[![Lint](https://img.shields.io/badge/ansible--lint-passing-brightgreen)](https://ansible-lint.readthedocs.io/)
+[![Molecule](https://img.shields.io/badge/molecule-tested-blue)](https://molecule.readthedocs.io/)
+
+
 
 Raspberry Pi ingestion pipeline for the LogExp radiation monitoring system.
 
 This repository contains:
 
-- A serial reader for the MightyOhm Geiger Counter  
-- A local SQLite database for durable storage  
-- A push client that forwards readings to the LogExp web API  
-- A systemd service for reliable operation  
-- Documentation and setup scripts  
+- A serial reader for the MightyOhm Geiger Counter
+- A local SQLite database for durable storage
+- A push client that forwards readings to the LogExp web API
+- A systemd service for reliable operation
+- Documentation and setup scripts
 
 The Pi reads CSV‑formatted lines from the Geiger counter:
 
@@ -80,10 +90,10 @@ sudo bash scripts/setup.sh
 
 This will:
 
-- Install Python dependencies  
-- Create required directories  
-- Install the systemd service  
-- Enable and start the service  
+- Install Python dependencies
+- Create required directories
+- Install the systemd service
+- Enable and start the service
 
 ---
 
@@ -144,5 +154,3 @@ These documents are designed for future maintainers and provide reproducible, pl
 ## License
 
 MIT
-
-
