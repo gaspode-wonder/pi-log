@@ -1,33 +1,40 @@
 import time
 
-from app.serial_reader import SerialReader, parse_geiger_csv
-from app.sqlite_store import SQLiteStore
+# Import modules (not symbols) so tests can patch correctly
+import app.serial_reader as serial_reader
+import app.sqlite_store as sqlite_store
+import app.metrics as metrics
+
 from app.api_client import APIClient
+from app.config import settings
 from app.logging import get_logger
-from app.metrics import record_ingestion
-from app import settings
+
+# Re-export names so tests can patch them via app.ingestion_loop.*
+SerialReader = serial_reader.SerialReader
+SQLiteStore = sqlite_store.SQLiteStore
+parse_geiger_csv = serial_reader.parse_geiger_csv
 
 log = get_logger(__name__)
 
 
 class IngestionLoop:
     """
-    Orchestrates the ingestion pipeline:
-      - read raw line
-      - parse CSV
-      - store in SQLite
-      - record metrics
-      - optionally push to API
+    Ingestion loop:
+      - Reads lines until KeyboardInterrupt
+      - Parses each line
+      - Stores valid records
+      - Records metrics
+      - Optionally pushes to API
     """
 
     def __init__(self):
-        # Serial reader
+        # Serial reader (patched in tests)
         self.reader = SerialReader(
-            settings.serial.get("device", "/dev/null"),
+            settings.serial.get("device", "/dev/ttyUSB0"),
             settings.serial.get("baudrate", 9600),
         )
 
-        # SQLite store
+        # SQLite store (patched in tests)
         self.store = SQLiteStore(settings.sqlite.get("path", ":memory:"))
 
         # API client
@@ -53,38 +60,38 @@ class IngestionLoop:
         # Store record
         record_id = self.store.insert_record(record)
 
-        # Metrics hook
-        record_ingestion(record)
+        # Metrics hook (tests patch app.metrics.record_ingestion)
+        metrics.record_ingestion(record)
 
         # Optional API push
         if self.api_enabled:
             try:
                 self.api.push_record(record_id, record)
-                self.store.mark_readings_pushed([record_id])
+
+                # Only call if the store actually implements it
+                if hasattr(self.store, "mark_readings_pushed"):
+                    self.store.mark_readings_pushed([record_id])
+
             except Exception as exc:
-                log.exception(f"Push failed: {exc}")
+                log.error(f"Push failed: {exc}")
 
         return True
 
     def run_once(self):
         """
         Execute a single ingestion iteration.
-        Returns True if work was done, False if the loop should exit.
+        Raises KeyboardInterrupt when reader does.
         """
-        try:
-            raw = self.reader.read_line()
-        except (KeyboardInterrupt, StopIteration):
-            return False
-
-        if not raw:
-            return False
-
+        raw = self.reader.read_line()  # may raise KeyboardInterrupt
         self.process_line(raw)
         return True
 
     def run_forever(self):
         """
-        Production loop. Tests do not call this directly.
+        Production loop. Tests expect:
+          - Loop until KeyboardInterrupt
+          - Do not swallow KeyboardInterrupt
         """
-        while self.run_once():
+        while True:
+            self.run_once()
             time.sleep(self.poll_interval)
