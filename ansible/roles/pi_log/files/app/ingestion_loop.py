@@ -172,3 +172,13 @@ class IngestionLoop:
                 # Last-ditch safety net; run_once() should already log
                 log.error(f"run_forever iteration failed: {exc}")
             time.sleep(self.poll_interval)
+
+def main():
+    loop = IngestionLoop()
+    loop.run_forever()
+
+if __name__ == "__main__":
+    main()
+
+if __name__ == "app.ingestion_loop":
+    main()
