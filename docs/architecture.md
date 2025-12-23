@@ -95,12 +95,12 @@ sequenceDiagram
 
 ## 5. Deployment Flow
 
-1. Developer writes code on macOS  
-2. pre-commit enforces linting and formatting  
-3. Code is deployed to Raspberry Pi  
-4. systemd starts ingestion service  
-5. Serial reader collects data  
-6. Data is stored locally or pushed to API  
+1. Developer writes code on macOS
+2. pre-commit enforces linting and formatting
+3. Code is deployed to Raspberry Pi
+4. systemd starts ingestion service
+5. Serial reader collects data
+6. Data is stored locally or pushed to API
 
 ---
 

@@ -17,8 +17,8 @@
 
 - name: Copy ingestion service script
   ansible.builtin.copy:
-    src: ingest.py
-    dest: /opt/pi-log/ingest.py
+    src: ingestion_loop.py
+    dest: /opt/pi-log/ingestion_loop.py
     owner: root
     group: root
     mode: "0755"

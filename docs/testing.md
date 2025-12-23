@@ -188,13 +188,12 @@ pytest
 
 # 6. What Can Be Tested on macOS Today
 
-✅ CSV parser  
-✅ SQLite storage  
-✅ Push client  
-✅ Serial reader (mocked)  
-✅ Full pipeline (mocked)  
-✅ LogExp UI (local server)  
-✅ Real serial ingestion using your macOS TTY  
+✅ CSV parser
+✅ SQLite storage
+✅ Push client
+✅ Serial reader (mocked)
+✅ Full pipeline (mocked)
+✅ LogExp UI (local server)
+✅ Real serial ingestion using your macOS TTY
 
 You can build **100% of the test suite** before the Raspberry Pi arrives.
-

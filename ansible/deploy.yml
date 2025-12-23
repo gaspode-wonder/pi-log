@@ -1,6 +1,8 @@
-- name: Deploy pi-log ingestion service
+---
+- name: Deploy pi-log ingestion service to Raspberry Pi
   hosts: pi
   become: true
+  gather_facts: true
 
   roles:
-    - pi_log
+    - role: pi_log

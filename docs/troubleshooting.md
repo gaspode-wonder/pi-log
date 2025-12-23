@@ -17,8 +17,8 @@ Expected:
 ```
 
 If incorrect:
-- Command Palette → Terminal: Select Default Profile → zsh  
-- Restart VS Code  
+- Command Palette → Terminal: Select Default Profile → zsh
+- Restart VS Code
 
 ---
 
@@ -82,43 +82,43 @@ pre-commit run --all-files
 # 5. Known Failure Modes
 
 ## Failure Mode 1 — VS Code launches bash
-**Symptoms:**  
-- `echo $SHELL` → `/bin/bash`  
-- pyenv not loading  
+**Symptoms:**
+- `echo $SHELL` → `/bin/bash`
+- pyenv not loading
 
-**Resolution:**  
-- Select zsh as default profile  
-- Clear VS Code terminal state  
+**Resolution:**
+- Select zsh as default profile
+- Clear VS Code terminal state
 
 ---
 
 ## Failure Mode 2 — pyenv not initializing
-**Symptoms:**  
-- `which python3.10` returns nothing  
+**Symptoms:**
+- `which python3.10` returns nothing
 
-**Resolution:**  
-- Ensure `.zshrc` contains pyenv initialization  
+**Resolution:**
+- Ensure `.zshrc` contains pyenv initialization
 
 ---
 
 ## Failure Mode 3 — ansible-lint version conflict
-**Symptoms:**  
-- pip reports conflicting versions  
+**Symptoms:**
+- pip reports conflicting versions
 
-**Resolution:**  
-- Remove `additional_dependencies`  
+**Resolution:**
+- Remove `additional_dependencies`
 
 ---
 
 # 6. Environment Parity Checklist
 
-- [ ] VS Code uses zsh  
-- [ ] pyenv initializes  
-- [ ] python3.10 available  
-- [ ] pre-commit installs cleanly  
-- [ ] ansible-lint runs without conflict  
-- [ ] `.venv` uses Python 3.9  
-- [ ] Pi deployment unaffected  
+- [ ] VS Code uses zsh
+- [ ] pyenv initializes
+- [ ] python3.10 available
+- [ ] pre-commit installs cleanly
+- [ ] ansible-lint runs without conflict
+- [ ] `.venv` uses Python 3.9
+- [ ] Pi deployment unaffected
 
 ---
 
