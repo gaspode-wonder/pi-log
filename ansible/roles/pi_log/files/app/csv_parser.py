@@ -1,42 +1,54 @@
 def parse_geiger_csv(line: str):
     """
-    Parse MightyOhm CSV lines of the form:
-    CPS, #####, CPM, #####, uSv/hr, ###.##, MODE
+    Robust parser for MightyOhm Geiger CSV lines.
 
-    Returns a dict:
-    {
-        "cps": int,
-        "cpm": int,
-        "usv": float,
-        "mode": str
-    }
+    Expected format:
+        CPS,<cps>,CPM,<cpm>,uSv/hr,<usv>,<mode>
 
-    Returns None for malformed or incomplete lines.
+    Returns:
+        dict with keys: cps, cpm, usv, mode, raw
+        or None if the line is malformed.
     """
-    if not isinstance(line, str):
+    if not line:
         return None
 
-    parts = [p.strip() for p in line.split(",")]
+    text = line.strip()
+    if not text:
+        return None
 
-    # Expected 7 parts:
-    # ["CPS", "#####", "CPM", "#####", "uSv/hr", "###.##", "MODE"]
+    parts = [p.strip() for p in text.split(",")]
+
+    # MightyOhm always emits 7 fields when valid
     if len(parts) != 7:
         return None
 
     try:
+        if parts[0] != "CPS":
+            return None
+
         cps = int(parts[1])
+        if parts[2] != "CPM":
+            return None
+
         cpm = int(parts[3])
+        if parts[4] != "uSv/hr":
+            return None
+
         usv = float(parts[5])
+        if usv < 0:
+            return None
+
         mode = parts[6]
-    except (ValueError, IndexError):
-        return None
+        if mode not in ("SLOW", "FAST", "INST"):
+            return None
 
-    if mode not in ("SLOW", "FAST", "INST"):
-        return None
+        return {
+            "raw": text,
+            "cps": cps,
+            "cpm": cpm,
+            "usv": usv,
+            "mode": mode,
+        }
 
-    return {
-        "cps": cps,
-        "cpm": cpm,
-        "usv": usv,
-        "mode": mode,
-    }
+    except Exception:
+        return None

@@ -6,16 +6,13 @@ from unittest.mock import MagicMock
 
 def parse_geiger_csv(line: str):
     """
-    Permissive parser for Geiger CSV lines.
+    Permissive parser for MightyOhm Geiger CSV lines.
 
-    Expected formats include:
-        "CPS, 9, CPM, 90, uSv/hr, 0.09, FAST"
+    Expected format:
+        "CPS, 1, CPM, 21, uSv/hr, 0.11, SLOW"
 
     Returns a dict with keys:
-        cps: int
-        cpm: int
-        usv: float   (never negative)
-        raw: original line
+        cps, cpm, usv, mode, raw
 
     Returns None for empty or malformed lines.
     """
@@ -27,36 +24,36 @@ def parse_geiger_csv(line: str):
         return None
 
     parts = [p.strip() for p in text.split(",")]
-    record = {"raw": text}
+
+    # MightyOhm always emits exactly 7 fields
+    if len(parts) != 7:
+        return None
 
     try:
-        # CPS
-        if parts[0] == "CPS" and len(parts) > 1:
-            record["cps"] = int(parts[1])
+        cps = int(parts[1])
+        cpm = int(parts[3])
+        usv = float(parts[5])
+        if usv < 0:
+            return None
 
-        # CPM
-        if "CPM" in parts:
-            i = parts.index("CPM")
-            if i + 1 < len(parts):
-                record["cpm"] = int(parts[i + 1])
+        # Extract mode
+        mode = parts[6].upper()
 
-        # uSv/hr → usv
-        if "uSv/hr" in parts:
-            i = parts.index("uSv/hr")
-            if i + 1 < len(parts):
-                usv = float(parts[i + 1])
-                if usv < 0:
-                    return None
-                record["usv"] = usv
+        # Normalize known modes
+        if mode not in ("SLOW", "FAST", "INST"):
+            mode = "UNKNOWN"
 
-        # Mode (last field)
-        if len(parts) >= 7:
-            record["mode"] = parts[6]
     except Exception:
-        # Keep a non‑empty record even if some fields fail
-        pass
+        return None
 
-    return record
+    return {
+        "raw": text,
+        "cps": cps,
+        "cpm": cpm,
+        "usv": usv,
+        "mode": mode,
+    }
+
 
 
 class SerialReader:
@@ -97,6 +94,7 @@ class SerialReader:
             return
 
         # 4. Production path
+        import serial
         self.ser = serial.Serial(device, baudrate, timeout=timeout)
 
 
@@ -111,6 +109,8 @@ class SerialReader:
         """
         try:
             raw = self.ser.readline()
+            self.logger.debug(f"RAW LINE: {raw!r}")
+
         except (StopIteration, KeyboardInterrupt):
             # These are control signals; let callers handle them
             raise
