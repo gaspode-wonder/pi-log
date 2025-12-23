@@ -15,7 +15,15 @@
     group: root
     mode: "0755"
 
-- name: Copy full application package
+- name: Ensure /var/lib/pi-log exists
+  ansible.builtin.file:
+    path: /var/lib/pi-log
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy application package
   ansible.builtin.copy:
     src: app/
     dest: /opt/pi-log/app/
@@ -23,15 +31,7 @@
     group: root
     mode: "0755"
 
-- name: Copy ingestion service script
-  ansible.builtin.copy:
-    src: ingestion_loop.py
-    dest: /opt/pi-log/ingestion_loop.py
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Install ingestion config
+- name: Deploy ingestion config
   ansible.builtin.template:
     src: config.toml.j2
     dest: /opt/pi-log/config.toml
@@ -51,8 +51,8 @@
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Enable and start pi-log service
+- name: Enable and restart pi-log service
   ansible.builtin.systemd:
     name: pi-log.service
     enabled: true
-    state: started
+    state: restarted

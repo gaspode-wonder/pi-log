@@ -1,8 +1,16 @@
 [serial]
-device = "/dev/ttyUSB0"
-baudrate = 9600
-timeout = 1.0
+device = "{{ pi_log_serial_device }}"
+baudrate = {{ pi_log_serial_baudrate }}
+timeout = {{ pi_log_serial_timeout }}
+
+[storage]
+db_path = "{{ pi_log_db_path }}"
 
 [logging]
 log_dir = "/opt/pi-log/logs"
-level = "INFO"
+level = "{{ pi_log_log_level }}"
+
+[push]
+enabled = {{ pi_log_push_enabled }}
+url = "{{ pi_log_push_url }}"
+api_key = "{{ pi_log_push_api_key }}"

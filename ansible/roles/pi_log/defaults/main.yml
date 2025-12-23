@@ -1,0 +1,11 @@
+pi_log_serial_device: "/dev/ttyUSB0"
+pi_log_serial_baudrate: 9600
+pi_log_serial_timeout: 1.0
+
+pi_log_db_path: "/var/lib/pi-log/readings.db"
+
+pi_log_log_level: "INFO"
+
+pi_log_push_enabled: false
+pi_log_push_url: ""
+pi_log_push_api_key: ""
