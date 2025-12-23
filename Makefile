@@ -166,3 +166,21 @@ diff: ## Generate a patch of uncommitted changes into patches/YYYYMMDD-changes.p
 	@ts=$$(date +"%Y%m%d"); \
 		git diff > patches/$$ts-changes.patch; \
 		echo "Created patches/$$ts-changes.patch"
+
+# -------------------------------------------------------------------
+# Release utilities
+# -------------------------------------------------------------------
+
+release: ## Usage: make release VERSION=0.1.1
+	@if [ -z "$(VERSION)" ]; then \
+		echo "ERROR: You must specify VERSION=X.Y.Z"; \
+		exit 1; \
+	fi
+	@echo "Bumping version to $(VERSION)"
+	sed -i '' "s/^version:.*/version: $(VERSION)/" galaxy.yml
+	git add galaxy.yml
+	git commit -m "Release v$(VERSION)"
+	git tag v$(VERSION)
+	git push
+	git push --tags
+	@echo "Release v$(VERSION) pushed. GitHub Actions will publish to Galaxy."

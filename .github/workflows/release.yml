@@ -24,13 +24,13 @@ jobs:
           pip install ansible ansible-lint
 
       - name: Lint Ansible role
-        run: ansible-lint ansible/
+        run: ansible-lint .
 
       - name: Import role into Ansible Galaxy
         env:
           ANSIBLE_GALAXY_API_KEY: ${{ secrets.ANSIBLE_GALAXY_API_KEY }}
         run: |
           ansible-galaxy role import \
-            gaspode_wonder \
-            pi_log \
+            gaspode-wonder \
+            pi-log \
             --token "$ANSIBLE_GALAXY_API_KEY"
