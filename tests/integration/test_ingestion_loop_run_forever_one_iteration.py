@@ -1,17 +1,14 @@
-from unittest.mock import patch, MagicMock
-from app.ingestion_loop import IngestionLoop
-
+from unittest.mock import patch
 
 @patch("time.sleep", return_value=None)
 @patch("app.ingestion_loop.SerialReader")
-def test_run_forever_one_iteration(mock_reader, _):
-    mock_reader_instance = mock_reader.return_value
-    mock_reader_instance.read_line.side_effect = [
+def test_run_forever_one_iteration(mock_reader, _, loop_factory):
+    mock_reader.return_value.read_line.side_effect = [
         "CPS, 5, CPM, 50, uSv/hr, 0.05, SLOW",
         KeyboardInterrupt,
     ]
 
-    loop = IngestionLoop()
+    loop = loop_factory()
 
     with patch.object(loop, "process_line") as mock_process:
         try:

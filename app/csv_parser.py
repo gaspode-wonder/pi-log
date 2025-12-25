@@ -9,7 +9,7 @@ def parse_geiger_csv(line: str):
         dict with keys: cps, cpm, usv, mode, raw
         or None if the line is malformed.
     """
-    if not line:
+    if not isinstance(line, str):
         return None
 
     text = line.strip()

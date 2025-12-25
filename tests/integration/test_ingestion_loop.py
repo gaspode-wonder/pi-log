@@ -1,5 +1,3 @@
-import types
-
 import app.ingestion_loop as ingestion_loop
 
 
@@ -7,7 +5,7 @@ def make_fake_record():
     return {"cpm": 42, "usv_per_h": 0.12, "timestamp": "2025-12-22T16:00:00Z"}
 
 
-def test_process_line_happy_path(monkeypatch):
+def test_process_line_happy_path(monkeypatch, loop_factory):
     calls = {}
 
     # Patch parser
@@ -17,6 +15,8 @@ def test_process_line_happy_path(monkeypatch):
 
     # Patch store
     class FakeStore:
+        def __init__(self, *args, **kwargs):
+            pass
         def insert_record(self, record):
             calls["store_record"] = record
             return 123
@@ -51,17 +51,14 @@ def test_process_line_happy_path(monkeypatch):
     monkeypatch.setattr(ingestion_loop, "APIClient", FakeAPIClient)
     monkeypatch.setattr(ingestion_loop, "LogExpClient", FakeLogExpClient)
 
-    # Patch settings to enable both API + LogExp
-    fake_settings = types.SimpleNamespace(
-        serial={"device": "/dev/fake", "baudrate": 9600},
-        sqlite={"path": ":memory:"},
-        api={"enabled": True, "base_url": "https://api.example", "token": "api-token"},
-        push={"enabled": True, "url": "https://logexp.example", "api_key": "logexp-key"},
-        ingestion={"poll_interval": 0.1},
-    )
-    monkeypatch.setattr(ingestion_loop, "settings", fake_settings)
+    loop = loop_factory({
+        "serial": {"device": "/dev/fake", "baudrate": 9600},
+        "sqlite": {"path": ":memory:"},
+        "api": {"enabled": True, "base_url": "https://api.example", "token": "api-token"},
+        "push": {"enabled": True, "url": "https://logexp.example", "api_key": "logexp-key"},
+        "ingestion": {"poll_interval": 0.1},
+    })
 
-    loop = ingestion_loop.IngestionLoop()
     ok = loop.process_line("RAW_LINE")
 
     assert ok is True
@@ -73,36 +70,32 @@ def test_process_line_happy_path(monkeypatch):
     assert calls["mark_pushed_ids"] == [123]
 
 
-def test_process_line_malformed(monkeypatch):
+def test_process_line_malformed(monkeypatch, loop_factory):
     # Parser returns None -> should log and return False
     def fake_parse(raw):
         return None
 
     class FakeStore:
+        def __init__(self, *args, **kwargs):
+            pass
         def insert_record(self, record):
             raise AssertionError("Should not be called")
 
     monkeypatch.setattr(ingestion_loop, "parse_geiger_csv", fake_parse)
     monkeypatch.setattr(ingestion_loop, "SQLiteStore", FakeStore)
 
-    fake_settings = types.SimpleNamespace(
-        serial={"device": "/dev/fake", "baudrate": 9600},
-        sqlite={"path": ":memory:"},
-        api={"enabled": False},
-        push={"enabled": False},
-        ingestion={"poll_interval": 0.1},
-    )
-    monkeypatch.setattr(ingestion_loop, "settings", fake_settings)
+    loop = loop_factory()
 
-    loop = ingestion_loop.IngestionLoop()
     ok = loop.process_line("BAD_LINE")
     assert ok is False
 
 
-def test_run_once_calls_process_line(monkeypatch):
+def test_run_once_calls_process_line(monkeypatch, loop_factory):
     calls = {}
 
     class FakeReader:
+        def __init__(self, *args, **kwargs):
+            pass
         def read_line(self):
             calls["read_line"] = True
             return "RAW"
@@ -111,17 +104,9 @@ def test_run_once_calls_process_line(monkeypatch):
         calls["process_line_raw"] = raw
         return True
 
-    fake_settings = types.SimpleNamespace(
-        serial={"device": "/dev/fake", "baudrate": 9600},
-        sqlite={"path": ":memory:"},
-        api={"enabled": False},
-        push={"enabled": False},
-        ingestion={"poll_interval": 0.0},
-    )
-    monkeypatch.setattr(ingestion_loop, "settings", fake_settings)
     monkeypatch.setattr(ingestion_loop, "SerialReader", FakeReader)
 
-    loop = ingestion_loop.IngestionLoop()
+    loop = loop_factory()
     monkeypatch.setattr(loop, "process_line", fake_process_line)
 
     result = loop.run_once()

@@ -1,4 +1,5 @@
 import time
+from fastapi import Depends
 
 # Import modules (not symbols) so tests can patch correctly
 import app.serial_reader as serial_reader
@@ -9,6 +10,7 @@ from app.api_client import APIClient
 from app.config_loader import load_config
 from app.logging import get_logger, setup_logging
 from app.logexp_client import LogExpClient
+from app.settings import Settings
 
 # Re-export names so tests can patch them via app.ingestion_loop.*
 SerialReader = serial_reader.SerialReader
@@ -29,9 +31,10 @@ class IngestionLoop:
       - Wire SerialReader._handle_parsed to ingestion logic
     """
 
-    def __init__(self, settings):
+    def __init__(self, settings: Settings):
         self.logger = log
         self.settings = settings
+
         # Serial reader (patched in tests)
         self.reader = SerialReader(
             self.settings.serial.get("device", "/dev/ttyUSB0"),
@@ -39,7 +42,7 @@ class IngestionLoop:
         )
 
         # SQLite store (patched in tests)
-        self.store = SQLiteStore(settings.sqlite.get("path", ":memory:"))
+        self.store = SQLiteStore(self.settings.sqlite.get("path", ":memory:"))
 
         # API client (optional)
         api_cfg = self.settings.api
@@ -194,9 +197,29 @@ class IngestionLoop:
             time.sleep(self.poll_interval)
 
 
+# ----------------------------------------------------------------------
+# Dependency Injection entrypoints
+# ----------------------------------------------------------------------
+def get_settings() -> Settings:
+    """FastAPI-style DI wrapper for ingestion settings."""
+    raw = load_config("/opt/pi-log/config.toml")
+    return Settings.from_dict(raw)
+
+
+def build_ingestion_loop(
+    settings: Settings = Depends(get_settings),
+):
+    """DI-friendly constructor for tests and runtime."""
+    return IngestionLoop(settings)
+
+
 def main():
+    """
+    Runtime entrypoint used by systemd.
+    """
     setup_logging()
-    settings = load_config("/opt/pi-log/config.toml")
+    raw = load_config("/opt/pi-log/config.toml")
+    settings = Settings.from_dict(raw)
     loop = IngestionLoop(settings)
     loop.run_forever()
 

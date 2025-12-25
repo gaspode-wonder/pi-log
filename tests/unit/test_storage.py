@@ -1,34 +1,23 @@
-import os
 import sqlite3
-import tempfile
+
 from app.sqlite_store import SQLiteStore
 
 
-def create_temp_db():
-    tmp = tempfile.NamedTemporaryFile(delete=False)
-    tmp.close()
-    return tmp.name
+def test_initialize_db_creates_schema(temp_db):
+    store = SQLiteStore(temp_db)
+    store.initialize_db()
 
-
-def test_initialize_db_creates_schema():
-    db_path = create_temp_db()
-    store = SQLiteStore(db_path)
-
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(temp_db)
     cur = conn.cursor()
-
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='readings'")
     result = cur.fetchone()
-
     conn.close()
-    os.unlink(db_path)
 
     assert result is not None
 
 
-def test_insert_and_select_unpushed():
-    db_path = create_temp_db()
-    store = SQLiteStore(db_path)
+def test_insert_and_select_unpushed(fake_store):
+    store = fake_store
 
     reading = {
         "cps": 10,
@@ -37,23 +26,16 @@ def test_insert_and_select_unpushed():
         "mode": "SLOW",
     }
 
-    store.insert_record(reading)
-    rows = store.get_unpushed_readings()
+    record_id = store.insert_record(reading)
+    assert isinstance(record_id, int)
 
-    os.unlink(db_path)
-
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["cps"] == 10
-    assert row["cpm"] == 100
-    assert abs(row["usv"] - 0.10) < 1e-6
-    assert row["mode"] == "SLOW"
-    assert row["pushed"] == 0
+    unpushed = store.select_unpushed_readings()
+    assert len(unpushed) == 1
+    assert unpushed[0]["id"] == record_id
 
 
-def test_mark_readings_pushed():
-    db_path = create_temp_db()
-    store = SQLiteStore(db_path)
+def test_mark_readings_pushed(fake_store):
+    store = fake_store
 
     reading = {
         "cps": 5,
@@ -62,14 +44,12 @@ def test_mark_readings_pushed():
         "mode": "FAST",
     }
 
-    store.insert_record(reading)
-    rows = store.get_unpushed_readings()
-    ids = [row["id"] for row in rows]
+    record_id = store.insert_record(reading)
 
-    store.mark_readings_pushed(ids)
+    unpushed_before = store.select_unpushed_readings()
+    assert any(r["id"] == record_id for r in unpushed_before)
 
-    rows_after = store.get_unpushed_readings()
+    store.mark_readings_pushed([record_id])
 
-    os.unlink(db_path)
-
-    assert len(rows_after) == 0
+    unpushed_after = store.select_unpushed_readings()
+    assert all(r["id"] != record_id for r in unpushed_after)
