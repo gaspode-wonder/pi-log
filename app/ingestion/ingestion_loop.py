@@ -1,19 +1,20 @@
 import time
 from fastapi import Depends
 
-from app.ingestion.serial_reader import SerialReader
-from app.ingestion.csv_parser import parse_geiger_csv
+import app.ingestion.serial_reader as serial_reader
+import app.ingestion.csv_parser as csv_parser
 
 import app.sqlite_store as sqlite_store
 import app.metrics as metrics
+import app.api_client as api_client
+import app.logexp_client as logexp_client
 
-from app.api_client import APIClient
 from app.config_loader import load_config
 from app.logging import get_logger, setup_logging
-from app.logexp_client import LogExpClient
 from app.settings import Settings
 
 SQLiteStore = sqlite_store.SQLiteStore
+
 
 log = get_logger("pi-log")
 
@@ -28,19 +29,21 @@ class IngestionLoop:
         self.settings = settings
 
         # Serial reader
-        self.reader = SerialReader(
+        reader_cls = serial_reader.SerialReader
+        self.reader = reader_cls(
             self.settings.serial.get("device", "/dev/ttyUSB0"),
             self.settings.serial.get("baudrate", 9600),
         )
 
         # SQLite store
-        self.store = SQLiteStore(self.settings.sqlite.get("path", ":memory:"))
+        self.store = sqlite_store.SQLiteStore(self.settings.sqlite.get("path", ":memory:"))
 
         # API client
         api_cfg = self.settings.api
         self.api_enabled = api_cfg.get("enabled", False)
+        self.api = None
         if self.api_enabled:
-            self.api = APIClient(
+            self.api = api_client.APIClient(
                 api_cfg.get("base_url", ""),
                 api_cfg.get("token", ""),
             )
@@ -50,26 +53,36 @@ class IngestionLoop:
         # LogExp client
         push_cfg = self.settings.push
         self.logexp_enabled = push_cfg.get("enabled", False)
+        self.logexp = None
+
         if self.logexp_enabled:
-            self.logexp = LogExpClient(
+            self.logexp = logexp_client.LogExpClient(
                 base_url=push_cfg.get("url", ""),
                 token=push_cfg.get("api_key", ""),
             )
-        else:
-            self.logexp = None
 
         self.poll_interval = self.settings.ingestion.get("poll_interval", 1)
+
 
         # Wire callback
         self.reader._handle_parsed = self._handle_parsed
 
     # ----------------------------------------------------------------------
     def _ingest_record(self, record):
+        record_id = None
+
         try:
             record_id = self.store.insert_record(record)
+        except Exception as exc:
+            self.logger.error(f"DB insert failed: {exc}")
 
+        # Metrics should ALWAYS fire if we parsed a record
+        try:
             metrics.record_ingestion(record)
+        except Exception as exc:
+            self.logger.error(f"metrics failed: {exc}")
 
+        if record_id is not None:
             if self.api:
                 try:
                     self.api.push_record(record_id, record)
@@ -78,28 +91,24 @@ class IngestionLoop:
                 except Exception as exc:
                     self.logger.error(f"API push failed: {exc}")
 
-            if self.logexp:
+            if self.logexp_enabled and self.logexp:
                 try:
                     self.logexp.push(record_id, record)
                 except Exception as exc:
                     self.logger.error(f"LogExp push failed: {exc}")
 
-            return True
-
-        except Exception as exc:
-            self.logger.error(f"_ingest_record failed: {exc}")
-            return False
+        return True
 
     # ----------------------------------------------------------------------
     def process_line(self, raw):
         self.logger.debug(f"PROCESSING RAW: {raw!r}")
 
         try:
-            record = parse_geiger_csv(raw)
+            record = csv_parser.parse_geiger_csv(raw)
 
             if record is None:
                 self.logger.warning("parse_geiger_csv returned no record")
-                return False
+                return True
 
             return self._ingest_record(record)
 

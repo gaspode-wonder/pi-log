@@ -18,7 +18,7 @@ from app.ingestion.ingestion_loop import (
 )
 
 # Re-export the real SerialReader and parser
-from app.ingestion.serial_reader import SerialReader
+from app.serial_reader import SerialReader
 from app.ingestion.csv_parser import parse_geiger_csv
 
 # Re-export API clients
@@ -33,7 +33,6 @@ __all__ = [
     "build_ingestion_loop",
     "get_settings",
     "main",
-    "SQLiteStore",
     "SerialReader",
     "parse_geiger_csv",
     "APIClient",

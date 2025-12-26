@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from app.ingestion.serial_reader import SerialReader
+from app.serial_reader import SerialReader
 from app.ingestion.csv_parser import parse_geiger_csv
 
 @patch("app.serial_reader.serial.Serial")

@@ -1,7 +1,7 @@
 import argparse
 import time
 
-from app.ingestion.serial_reader import SerialReader
+from app.serial_reader import SerialReader
 from app.sqlite_store import (
     initialize_db,
     insert_reading,

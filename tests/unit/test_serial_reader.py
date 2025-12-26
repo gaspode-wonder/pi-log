@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from app.ingestion.serial_reader import SerialReader
+from app.serial_reader import SerialReader
 
 
 @patch("app.serial_reader.parse_geiger_csv")

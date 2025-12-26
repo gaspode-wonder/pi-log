@@ -1,15 +1,17 @@
 """
 Compatibility shim for tests.
 
-We expose ONLY:
-    parse_geiger_csv
+This package exposes:
+    - SerialReader (forwarded from serial_reader.py)
+    - parse_geiger_csv (forwarded from csv_parser)
 
-We intentionally do NOT import or re-export Serial here.
+It intentionally does NOT re-export Serial.
 Tests patch:
     app.serial_reader.serial.Serial
 and SerialReader imports from that module directly.
 """
 
+from .serial_reader import SerialReader
 from app.ingestion.csv_parser import parse_geiger_csv
 
-__all__ = ["parse_geiger_csv"]
+__all__ = ["SerialReader", "parse_geiger_csv"]
