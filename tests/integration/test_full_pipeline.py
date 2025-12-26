@@ -9,7 +9,7 @@ def create_temp_db():
     return tmp.name
 
 @patch("time.sleep", return_value=None)
-@patch("app.ingestion_loop.SerialReader")
+@patch("app.ingestion.serial_reader.SerialReader")
 @responses.activate
 def test_full_pipeline(mock_reader, _, loop_factory):
     db_path = create_temp_db()

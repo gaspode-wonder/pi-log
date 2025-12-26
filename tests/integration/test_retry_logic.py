@@ -3,9 +3,9 @@ from unittest.mock import patch
 import app.ingestion_loop as ingestion_loop
 
 
-@patch("app.ingestion_loop.parse_geiger_csv")
-@patch("app.ingestion_loop.SQLiteStore")
-@patch("app.ingestion_loop.APIClient")
+@patch("app.ingestion.csv_parser.parse_geiger_csv")
+@patch("app.sqlite_store.SQLiteStore")
+@patch("app.api_client.APIClient")
 def test_retry_logic_api_failure(mock_api, mock_store, mock_parse, loop_factory):
     # Parser returns valid reading
     mock_parse.return_value = {"cps": 10}

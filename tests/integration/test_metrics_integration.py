@@ -4,8 +4,8 @@ import app.ingestion_loop as ingestion_loop
 
 
 @patch("app.metrics.record_ingestion")
-@patch("app.ingestion_loop.parse_geiger_csv")
-@patch("app.ingestion_loop.SQLiteStore")
+@patch("app.ingestion.csv_parser.parse_geiger_csv")
+@patch("app.sqlite_store.SQLiteStore")
 def test_metrics_recorded(mock_store, mock_parse, mock_record, loop_factory):
     mock_parse.return_value = {"cps": 10}
     mock_store.return_value.insert_record.return_value = 1

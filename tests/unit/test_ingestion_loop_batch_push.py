@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
 
-@patch("app.ingestion_loop.parse_geiger_csv")
-@patch("app.ingestion_loop.SQLiteStore")
-@patch("app.ingestion_loop.APIClient")
+@patch("app.ingestion.csv_parser.parse_geiger_csv")
+@patch("app.sqlite_store.SQLiteStore")
+@patch("app.api_client.APIClient")
 def test_ingestion_loop_pushes_multiple_records(mock_api, mock_store, mock_parse, loop_factory):
     # Mock parser output for multiple lines
     mock_parse.side_effect = [

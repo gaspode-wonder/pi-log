@@ -2,8 +2,6 @@ import json
 import requests
 from app.logging import get_logger
 
-log = get_logger("pi-log")
-
 
 class APIClient:
     """
@@ -13,6 +11,7 @@ class APIClient:
     def __init__(self, base_url: str, token: str):
         self.base_url = base_url.rstrip("/")
         self.token = token
+        self.log = get_logger("pi-log")  # moved inside __init__
 
     def push_record(self, record_id: int, record: dict):
         """
@@ -23,13 +22,16 @@ class APIClient:
           - One POST per call
         """
         url = f"{self.base_url}/readings"
-        headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+        }
 
         try:
             requests.post(url, data=json.dumps(record), headers=headers)
         except Exception as exc:
             # Tests require: do not raise
-            log.error(f"Push failed for record {record_id}: {exc}")
+            self.log.error(f"Push failed for record {record_id}: {exc}")
             return False
 
         return True

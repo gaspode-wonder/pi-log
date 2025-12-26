@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
 
-@patch("app.ingestion_loop.parse_geiger_csv")
-@patch("app.ingestion_loop.SQLiteStore")
-@patch("app.ingestion_loop.APIClient")
+@patch("app.ingestion.csv_parser.parse_geiger_csv")
+@patch("app.sqlite_store.SQLiteStore")
+@patch("app.api_client.APIClient")
 def test_process_line_stores_and_pushes(mock_api, mock_store, mock_parse, loop_factory):
     # Mock parser output
     mock_parse.return_value = {"cps": 10, "cpm": 100, "usv": 0.1, "mode": "FAST"}

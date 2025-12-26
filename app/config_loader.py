@@ -23,16 +23,17 @@ def load_config(path: Union[str, os.PathLike] = DEFAULT_CONFIG_PATH) -> dict:
       - If file malformed → return {}.
     """
     path = Path(path)
-    print("DEBUG: loading from:", path)
+
     if not path.exists():
         return {}
 
     try:
         with path.open("rb") as f:
-            data =  tomllib.load(f)
+            data = tomllib.load(f)
             return SettingsNamespace(data)
     except Exception:
         return {}
+
 
 class SettingsNamespace:
     def __init__(self, data):
@@ -44,5 +45,9 @@ class SettingsNamespace:
 
     def get(self, key, default=None):
         return getattr(self, key, default)
-# Tests expect CONFIG to exist at module level
-CONFIG = load_config()
+
+
+# Tests expect CONFIG to exist at module level.
+# It must NOT load /opt/pi-log/config.toml during import.
+# So we return {} here, and runtime code loads real config explicitly.
+CONFIG = {}

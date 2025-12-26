@@ -2,8 +2,8 @@ from unittest.mock import patch
 import responses
 
 @patch("time.sleep", return_value=None)
-@patch("app.ingestion_loop.SerialReader")
-@patch("app.ingestion_loop.SQLiteStore")
+@patch("app.ingestion.serial_reader.SerialReader")
+@patch("app.sqlite_store.SQLiteStore")
 @responses.activate
 def test_ingestion_loop_full_pipeline(mock_store, mock_reader, _, loop_factory):
     mock_reader.return_value.read_line.side_effect = [
