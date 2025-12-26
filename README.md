@@ -3,39 +3,30 @@
 [![CI](https://github.com/gaspode-wonder/pi-log/actions/workflows/ci.yml/badge.svg)](https://github.com/gaspode-wonder/pi-log/actions/workflows/ci.yml)
 [![Release](https://github.com/gaspode-wonder/pi-log/actions/workflows/release.yml/badge.svg)](https://github.com/gaspode-wonder/pi-log/actions/workflows/release.yml)
 
-# Pi‑Log Documentation
+pi-log is a Raspberry Pi–based serial ingestion service for the LogExp radiation
+monitoring system. It reads CSV-formatted data from a MightyOhm Geiger Counter,
+stores readings locally for durability, and forwards them to the LogExp web API.
 
-This directory contains all project documentation, including architecture,
-developer workflows, troubleshooting guides, and deployment instructions.
+The project emphasizes deterministic behavior, clear component boundaries,
+testability, and reproducible deployment.
 
-## Files
+---
 
-- `architecture.md` — System overview, data flow, and component boundaries
-- `developer-guide.md` — Local development, testing, linting, and Makefile usage
-- `ingestion-flow.md` — Serial ingestion pipeline, parser behavior, and push logic
-- `troubleshooting.md` — Common issues, diagnostics, and recovery steps
-- `deployment.md` — Ansible-based deployment and service management
-
-All documents are written for future maintainers and emphasize reproducibility,
-clarity, and platform-agnostic workflows.
-
-Raspberry Pi ingestion pipeline for the LogExp radiation monitoring system.
+## Project Overview
 
 This repository contains:
 
 - A serial reader for the MightyOhm Geiger Counter
 - A local SQLite database for durable storage
 - A push client that forwards readings to the LogExp web API
-- A systemd service for reliable operation
+- A systemd service for reliable, unattended operation
 - Documentation and setup scripts
 
-The Pi reads CSV‑formatted lines from the Geiger counter:
-
-```
+The Pi reads CSV-formatted lines from the Geiger counter in the following form:
+```t
 CPS, #####, CPM, #####, uSv/hr, ###.##, SLOW|FAST|INST
 ```
-
-Each reading is stored locally and pushed to the LogExp server.
+Each reading is stored locally and pushed to the LogExp server with retry logic.
 
 ---
 
@@ -44,15 +35,33 @@ Each reading is stored locally and pushed to the LogExp server.
 - Serial ingestion from `/dev/ttyUSB0`
 - CSV parsing (CPS, CPM, uSv/hr, mode)
 - Local SQLite durability
-- Push‑first sync model with retry logic
+- Push-first sync model with retry handling
 - systemd integration
-- Minimal dependencies
+- Minimal runtime dependencies
+
+---
+
+## Development and CI Model
+
+Development follows a standard Git workflow.
+
+Changes are made directly in the repository, validated locally, and enforced
+through automated testing and continuous integration. Patch-based workflows are
+not used.
+
+Continuous integration is responsible for:
+
+- Running Python unit and integration tests
+- Enforcing formatting and linting rules
+- Validating behavior against documented contracts
+
+CI is treated as a guardrail to ensure refactors and enhancements remain safe and
+reviewable.
 
 ---
 
 ## Repository Structure
-
-```
+```tree
 pi-log/
 ├── Makefile
 ├── README.md
@@ -70,30 +79,21 @@ pi-log/
 │   └── example.env
 ├── tests/
 │   ├── unit/
-│   │   ├── test_parser.py
-│   │   ├── test_storage.py
-│   │   ├── test_push_client.py
-│   │   └── test_serial_reader.py
 │   ├── integration/
-│   │   ├── test_parser_db.py
-│   │   ├── test_db_push.py
-│   │   └── test_full_pipeline.py
 │   └── ui/
-│       ├── test_logexp_display.py
-│       └── test_cli_output.py
 └── docs/
     ├── architecture.md
     ├── api.md
-    └── troubleshooting.md
+    ├── ingestion-flow.md
+    ├── troubleshooting.md
+    └── deployment.md
 ```
-
 ---
 
 ## Installation
 
 Run the setup script:
-
-```
+```bash
 sudo bash scripts/setup.sh
 ```
 
@@ -108,9 +108,8 @@ This will:
 
 ## Environment Variables
 
-Copy `config/example.env` to `/etc/default/geiger`:
-
-```
+Copy `config/example.env` to `/etc/default/geiger` and adjust as needed:
+```bash
 GEIGER_SERIAL_PORT=/dev/ttyUSB0
 GEIGER_DB_PATH=/var/lib/geiger/geiger.db
 LOGEXP_BASE_URL=https://your-logexp-host
@@ -120,13 +119,11 @@ LOGEXP_API_TOKEN=CHANGE_ME
 ---
 
 ## Service Management
-
-```
+```bash
 sudo systemctl status geiger
 sudo systemctl restart geiger
 sudo systemctl stop geiger
 ```
-
 ---
 
 ## Data Format
@@ -141,25 +138,28 @@ Each reading stored in SQLite includes:
 - pushed (0/1)
 
 ---
+
 ## Documentation
 
-The `docs/` directory contains all architecture, troubleshooting, and diagram resources for pi-log.
+The `docs/` directory contains architecture, operational, and troubleshooting
+resources intended for future maintainers.
 
-### 📘 Architecture
+### Architecture
 - [System Architecture](docs/architecture.md)
 - [System Overview Diagram](docs/diagrams/system-overview.md)
 - [Shell/pyenv/pre-commit Sequence Diagram](docs/diagrams/sequence.md)
 
-### 🛠 Troubleshooting
+### Troubleshooting
 - [Troubleshooting Guide](docs/troubleshooting.md)
 - Known failure modes
 - Diagnostic checklists
 - Environment validation steps
 
-These documents are designed for future maintainers and provide reproducible, platform-agnostic guidance for macOS development and Raspberry Pi deployment.
-
+These documents are written to support reproducible development on macOS and
+deployment on Raspberry Pi systems.
 
 ---
+
 ## License
 
 MIT
