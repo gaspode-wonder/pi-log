@@ -149,6 +149,15 @@ resources intended for future maintainers.
 - [System Overview Diagram](docs/diagrams/system-overview.md)
 - [Shell/pyenv/pre-commit Sequence Diagram](docs/diagrams/sequence.md)
 
+### Development & Validation
+
+All application changes must pass the documented local validation procedure
+before relying on CI or merging.
+
+See: [Application Validation Procedure](docs/development.md)
+
+The same steps are enforced automatically via GitHub Actions.
+
 ### Troubleshooting
 - [Troubleshooting Guide](docs/troubleshooting.md)
 - Known failure modes

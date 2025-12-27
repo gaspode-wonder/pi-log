@@ -47,8 +47,11 @@ venv-rebuild-pi:
 # Local development
 # -------------------------------------------------------------------
 
-test: ## Run unit tests
-	.venv/bin/pytest -q
+check-venv:
+    @test -n "$$VIRTUAL_ENV" || (echo "ERROR: .venv not activated"; exit 1)
+
+test: check-venv install ## Run application test suite (CI parity)
+	.venv/bin/pytest
 
 lint: ## Run flake8 + black checks
 	.venv/bin/flake8 app
