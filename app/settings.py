@@ -1,3 +1,4 @@
+# pi-log/app/settings.py
 """
 Settings wrapper for ingestion loop and API.
 
@@ -38,6 +39,8 @@ class Settings:
         self.api = Section(raw.get("api", {}))
         self.push = Section(raw.get("push", {}))
         self.ingestion = Section(raw.get("ingestion", {}))
+        self.telemetry = Section(raw.get("telemetry", {}))
+
 
     @classmethod
     def from_dict(cls, raw: dict):

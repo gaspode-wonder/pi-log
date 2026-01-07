@@ -1,5 +1,6 @@
+# app/ingestion/ingestion_loop.py
+
 import time
-from fastapi import Depends
 
 import app.ingestion.serial_reader as serial_reader
 import app.ingestion.csv_parser as csv_parser
@@ -14,7 +15,6 @@ from app.logging import get_logger, setup_logging
 from app.settings import Settings
 
 SQLiteStore = sqlite_store.SQLiteStore
-
 
 log = get_logger("pi-log")
 
@@ -36,7 +36,9 @@ class IngestionLoop:
         )
 
         # SQLite store
-        self.store = sqlite_store.SQLiteStore(self.settings.sqlite.get("path", ":memory:"))
+        self.store = sqlite_store.SQLiteStore(
+            self.settings.sqlite.get("path", ":memory:")
+        )
 
         # API client
         api_cfg = self.settings.api
@@ -47,27 +49,28 @@ class IngestionLoop:
                 api_cfg.get("base_url", ""),
                 api_cfg.get("token", ""),
             )
-        else:
-            self.api = None
 
         # LogExp client
         push_cfg = self.settings.push
         self.logexp_enabled = push_cfg.get("enabled", False)
         self.logexp = None
-
         if self.logexp_enabled:
             self.logexp = logexp_client.LogExpClient(
                 base_url=push_cfg.get("url", ""),
                 token=push_cfg.get("api_key", ""),
             )
 
-        self.poll_interval = self.settings.ingestion.get("poll_interval", 1)
-
+        # Poll interval (normalize to float, safe fallback)
+        raw_interval = self.settings.ingestion.get("poll_interval", 1)
+        try:
+            self.poll_interval = float(raw_interval)
+        except Exception:
+            self.poll_interval = 1.0
 
         # Wire callback
         self.reader._handle_parsed = self._handle_parsed
 
-    # ----------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def _ingest_record(self, record):
         record_id = None
 
@@ -99,7 +102,7 @@ class IngestionLoop:
 
         return True
 
-    # ----------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def process_line(self, raw):
         self.logger.debug(f"PROCESSING RAW: {raw!r}")
 
@@ -116,7 +119,7 @@ class IngestionLoop:
             self.logger.error(f"process_line failed: {exc}")
             return False
 
-    # ----------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def _handle_parsed(self, record):
         try:
             ok = self._ingest_record(record)
@@ -125,7 +128,7 @@ class IngestionLoop:
         except Exception as exc:
             self.logger.error(f"_handle_parsed failed: {exc}")
 
-    # ----------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def run_once(self):
         try:
             raw = self.reader.read_line()
@@ -136,7 +139,7 @@ class IngestionLoop:
             self.logger.error(f"run_once failed: {exc}")
         return True
 
-    # ----------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def run_forever(self):
         while True:
             try:
@@ -154,7 +157,9 @@ def get_settings() -> Settings:
     return Settings.from_dict(raw)
 
 
-def build_ingestion_loop(settings: Settings = Depends(get_settings)):
+def build_ingestion_loop(settings: Settings = None):
+    if settings is None:
+        settings = get_settings()
     return IngestionLoop(settings)
 
 

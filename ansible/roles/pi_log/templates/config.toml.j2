@@ -14,3 +14,9 @@ level = "{{ pi_log_log_level }}"
 enabled = {{ pi_log_push_enabled }}
 url = "{{ pi_log_push_url }}"
 api_key = "{{ pi_log_push_api_key }}"
+
+[telemetry]
+enabled = {{ telemetry_enabled | default(false) }}
+url = "{{ telemetry_url | default('http://beamrider-0002.local:8000') }}"
+api_key = "{{ telemetry_api_key | default('YOUR_TOKEN') }}"
+batch_size = {{ telemetry_batch_size | default(20) }}

@@ -1,5 +1,7 @@
+# app/ingestion_loop.py
+
 """
-Compatibility shim for legacy imports and test patch paths.
+Compatibility shim for legacy imports and systemd entrypoints.
 
 Historically, ingestion lived in `app.ingestion_loop`.
 After refactoring, the implementation moved to `app.ingestion.ingestion_loop`.
