@@ -1,172 +1,153 @@
+# filename: app/sqlite_store.py
+
+from __future__ import annotations
+
 import sqlite3
-from pathlib import Path
-from datetime import datetime
-from app.logging import get_logger
+from datetime import datetime, timezone
+from typing import List
 
-log = get_logger("pi-log")
+from app.models import GeigerRecord
 
 
-class SQLiteStore:
-    def __init__(self, db_path: str):
-        print(">>> SQLiteStore INIT db_path =", db_path) # <-- ADD THIS
-        self.db_path = db_path
-        self.conn = sqlite3.connect(self.db_path)
-        self.conn.row_factory = sqlite3.Row
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS geiger_readings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raw TEXT NOT NULL,
+    counts_per_second INTEGER NOT NULL,
+    counts_per_minute INTEGER NOT NULL,
+    microsieverts_per_hour REAL NOT NULL,
+    mode TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    pushed INTEGER NOT NULL DEFAULT 0
+);
+"""
 
-    def initialize_db(self):
-        """Create the readings table if it does not exist."""
-        self.conn.execute(
+
+def initialize_db(db_path: str) -> None:
+    """
+    Initialize the SQLite database with the canonical schema only.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(SCHEMA)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def insert_record(db_path: str, record: GeigerRecord) -> None:
+    """
+    Insert a new GeigerRecord into the canonical geiger_readings table.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS readings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                cps REAL NOT NULL,
-                cpm REAL NOT NULL,
-                usv REAL NOT NULL,
-                mode TEXT NOT NULL,
-                raw TEXT NOT NULL,
-                pushed INTEGER NOT NULL DEFAULT 0
-            )
+            INSERT INTO geiger_readings (
+                raw,
+                counts_per_second,
+                counts_per_minute,
+                microsieverts_per_hour,
+                mode,
+                device_id,
+                timestamp,
+                pushed
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record.raw,
+                record.counts_per_second,
+                record.counts_per_minute,
+                record.microsieverts_per_hour,
+                record.mode,
+                record.device_id,
+                record.timestamp.isoformat(),
+                1 if record.pushed else 0,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _row_to_record(row: tuple) -> GeigerRecord:
+    """
+    Convert a SQLite row tuple into a GeigerRecord.
+    """
+    (
+        id_,
+        raw,
+        cps,
+        cpm,
+        usv,
+        mode,
+        device_id,
+        ts_raw,
+        pushed,
+    ) = row
+
+    timestamp = (
+        datetime.fromisoformat(ts_raw)
+        if isinstance(ts_raw, str)
+        else datetime.now(timezone.utc)
+    )
+
+    return GeigerRecord(
+        id=id_,
+        raw=raw,
+        counts_per_second=int(cps),
+        counts_per_minute=int(cpm),
+        microsieverts_per_hour=float(usv),
+        mode=mode,
+        device_id=device_id,
+        timestamp=timestamp,
+        pushed=bool(pushed),
+    )
+
+
+def get_unpushed_records(db_path: str) -> List[GeigerRecord]:
+    """
+    Return all canonical records where pushed == 0.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cursor = conn.execute(
+            """
+            SELECT
+                id,
+                raw,
+                counts_per_second,
+                counts_per_minute,
+                microsieverts_per_hour,
+                mode,
+                device_id,
+                timestamp,
+                pushed
+            FROM geiger_readings
+            WHERE pushed = 0
+            ORDER BY id ASC
             """
         )
-        self.conn.commit()
+        rows = cursor.fetchall()
+        return [_row_to_record(row) for row in rows]
+    finally:
+        conn.close()
 
 
-    def insert_record(self, record: dict) -> int:
-        conn = sqlite3.connect(self.db_path)
-        try:
-            timestamp = record.get("timestamp") or datetime.utcnow().isoformat()
+def mark_records_pushed(db_path: str, ids: List[int]) -> None:
+    """
+    Mark the given canonical record IDs as pushed.
+    """
+    if not ids:
+        return
 
-            cur = conn.execute(
-                """
-                INSERT INTO readings (timestamp, cps, cpm, usv, mode, raw)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    timestamp,
-                    record["cps"],
-                    record["cpm"],
-                    record["usv"],
-                    record["mode"],
-                    record.get("raw", ""),
-                ),
-            )
-            conn.commit()
-            return cur.lastrowid
-        finally:
-            conn.close()
-
-
-    def mark_readings_pushed(self, ids):
-        """
-        Mark readings as pushed.
-        Tests patch this method and assert call counts.
-        """
-        if not ids:
-            return
-
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.executemany(
-                "UPDATE readings SET pushed = 1 WHERE id = ?",
-                [(i,) for i in ids],
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-
-    def select_unpushed_readings(self):
-        """
-        Return all readings where pushed == 0 as a list of dicts.
-        """
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            cur = conn.execute(
-                """
-                SELECT id, timestamp, cps, cpm, usv, mode, raw, pushed
-                FROM readings
-                WHERE pushed = 0
-                ORDER BY id ASC
-                """
-            )
-            rows = cur.fetchall()
-            return [dict(row) for row in rows]
-        finally:
-            conn.close()
-
-
-    def mark_readings_pushed(self, ids):
-        """
-        Mark the given reading IDs as pushed.
-        """
-        if not ids:
-            return
-
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.executemany(
-                "UPDATE readings SET pushed = 1 WHERE id = ?",
-                [(i,) for i in ids],
-            )
-            conn.commit()
-        finally:
-            conn.close()
-
-
-
-    def get_unpushed_readings(self):
-        """
-        Return list of dicts for rows where pushed = 0.
-        Tests expect dicts, not sqlite3.Row.
-        """
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT * FROM readings WHERE pushed = 0"
-            ).fetchall()
-            return [dict(row) for row in rows]
-        finally:
-            conn.close()
-
-    def get_all_readings(self):
-        """
-        Return list of dicts for all rows.
-        """
-        conn = sqlite3.connect(self.db_path)
-        try:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT * FROM readings").fetchall()
-            return [dict(row) for row in rows]
-        finally:
-            conn.close()
-
-    def get_latest_reading(self):
-        query = """
-            SELECT id, timestamp, cps, cpm, mode, raw
-            FROM readings
-            ORDER BY id DESC
-            LIMIT 1
-        """
-        cur = self.conn.execute(query)
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-    def get_recent_readings(self, limit: int = 10):
-        query = """
-            SELECT id, timestamp, cps, cpm, mode, raw
-            FROM readings
-            ORDER BY id DESC
-            LIMIT ?
-        """
-        cur = self.conn.execute(query, (limit,))
-        rows = cur.fetchall()
-        return [dict(row) for row in rows]
-
-    def count_readings(self):
-        query = "SELECT COUNT(*) AS count FROM readings"
-        cur = self.conn.execute(query)
-        row = cur.fetchone()
-        return row["count"] if row else 0
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executemany(
+            "UPDATE geiger_readings SET pushed = 1 WHERE id = ?",
+            [(i,) for i in ids],
+        )
+        conn.commit()
+    finally:
+        conn.close()

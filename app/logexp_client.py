@@ -1,6 +1,7 @@
 import requests
 import logging
 
+
 class LogExpClient:
     """
     Minimal client for pushing readings to LogExp.

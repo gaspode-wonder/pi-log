@@ -1,5 +1,6 @@
+# filename: ansible/roles/pi_log/tasks/main.yml
 ---
-- name: Ensure /opt/pi-log exists
+- name: Ensure pi-log directory exists
   ansible.builtin.file:
     path: /opt/pi-log
     state: directory
@@ -7,82 +8,23 @@
     group: root
     mode: "0755"
 
-- name: Ensure /opt/pi-log/logs exists
+- name: Ensure config directory exists
   ansible.builtin.file:
-    path: /opt/pi-log/logs
+    path: /etc/pi-log
     state: directory
     owner: root
     group: root
     mode: "0755"
 
-- name: Ensure /var/lib/pi-log exists
-  ansible.builtin.file:
-    path: /var/lib/pi-log
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Remove old application directory
-  ansible.builtin.file:
-    path: /opt/pi-log/app
-    state: absent
-
-- name: Deploy application package
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../app/"
-    dest: /opt/pi-log/app/
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Ensure /opt/pi-log/app/logging exists
-  ansible.builtin.file:
-    path: /opt/pi-log/app/logging
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Deploy logging config
-  ansible.builtin.copy:
-    src: app/logging/logging.toml
-    dest: /opt/pi-log/app/logging/logging.toml
-    owner: root
-    group: root
-    mode: "0644"
-
-- name: Deploy ingestion config
+- name: Deploy config.toml
   ansible.builtin.template:
     src: config.toml.j2
-    dest: /opt/pi-log/config.toml
+    dest: /etc/pi-log/config.toml
     owner: root
     group: root
     mode: "0644"
 
-# ----------------------------------------
-# Python virtual environment
-# ----------------------------------------
-
-- name: Ensure Python venv directory exists
-  ansible.builtin.file:
-    path: /opt/pi-log/.venv
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Create Python virtual environment
-  ansible.builtin.command:
-    cmd: python3 -m venv /opt/pi-log/.venv
-    creates: /opt/pi-log/.venv/bin/activate
-
-- name: Install Python dependencies into venv
-  ansible.builtin.pip:
-    requirements: /opt/pi-log/requirements.txt
-    virtualenv: /opt/pi-log/.venv
-
-- name: Install ingestion systemd unit
+- name: Deploy systemd service
   ansible.builtin.template:
     src: pi-log.service.j2
     dest: /etc/systemd/system/pi-log.service
@@ -90,26 +32,27 @@
     group: root
     mode: "0644"
 
-- name: Install API systemd unit
-  ansible.builtin.template:
-    src: pi-log-api.service.j2
-    dest: /etc/systemd/system/pi-log-api.service
-    owner: root
-    group: root
-    mode: "0644"
+- name: Install pi-log Python package
+  ansible.builtin.pip:
+    name: /opt/pi-log
+    editable: true
 
-- name: Reload systemd
+- name: Copy pi-log executable wrapper
+  ansible.builtin.copy:
+    src: pi-log.sh
+    dest: /usr/local/bin/pi-log
+    mode: "0755"
+
+- name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Enable and restart ingestion service
+- name: Enable pi-log service
   ansible.builtin.systemd:
-    name: pi-log.service
+    name: pi-log
     enabled: true
-    state: restarted
 
-- name: Enable and restart API service
+- name: Start pi-log service
   ansible.builtin.systemd:
-    name: pi-log-api.service
-    enabled: true
-    state: restarted
+    name: pi-log
+    state: started

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: F401
 from app.health import health_check
 
 

@@ -1,22 +1,40 @@
+# /etc/systemd/system/pi-log.service
 [Unit]
-Description=Pi-Log Geiger Counter Ingestion Service
+Description=Pi-Log Beamrider Ingestion Agent
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=pi
+Group=pi
 WorkingDirectory=/opt/pi-log
-ExecStart=/usr/bin/python3 -m pi_log.geiger_reader \
-    --device /dev/ttyUSB0 \
-    --db /var/lib/pi-log/readings.db \
-    --api-url https://logexp.example.com/api/ingest \
-    --api-token ${PI_LOG_API_TOKEN}
 
-Restart=on-failure
-RestartSec=5
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="LOGEXP_URL=http://keep-0001.local:8000"
+EnvironmentFile=-/etc/pi-log.env
 
-EnvironmentFile=/etc/pi-log/env
+# Command
+ExecStart=/usr/bin/python3 -m pilog.main
+
+# Restart Policy
+Restart=always
+RestartSec=2
+
+# Security Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

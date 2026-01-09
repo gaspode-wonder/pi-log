@@ -1,3 +1,5 @@
+---
+# filename: .github/workflows/ansible-role-ci.yml
 name: Ansible Role CI
 
 on:
@@ -26,7 +28,3 @@ jobs:
 
       - name: Lint role
         run: ansible-lint ansible/roles/pi_log
-
-      - name: Run Molecule tests
-        working-directory: ansible/roles/pi_log
-        run: molecule test

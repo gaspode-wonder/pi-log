@@ -1,0 +1,14 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check that pi-log service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/pi-log.service
+      register: service_file
+
+    - name: Assert service file exists
+      ansible.builtin.assert:
+        that:
+          - service_file.stat.exists

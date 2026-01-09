@@ -1,9 +1,12 @@
+# pi_log/app/metrics.pt
+
+from typing import Any
 from app.logging import get_logger
 
 log = get_logger("pi-log")
 
 
-def record_ingestion(record: dict):
+def record_ingestion(record: dict[str, Any]) -> None:
     """
     Minimal metrics hook.
 

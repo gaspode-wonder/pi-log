@@ -1,16 +1,9 @@
-# ansible/roles/pi_log/templates/config.toml.j2
-
 [serial]
 device = "/dev/ttyUSB0"
 baudrate = 9600
 
 [sqlite]
 path = "/opt/pi-log/readings.db"
-
-[logging]
-version = 1
-level = "INFO"
-log_dir = "/opt/pi-log/logs"
 
 [ingestion]
 poll_interval = 1

@@ -1,14 +1,13 @@
+# filename: app/serial_reader/__init__.py
 """
-Compatibility shim for tests.
+Serial reader package.
 
 This package exposes:
-    - SerialReader (forwarded from serial_reader.py)
-    - parse_geiger_csv (forwarded from csv_parser)
+    - SerialReader (from serial_reader.py)
+    - parse_geiger_csv (from app.ingestion.csv_parser)
 
-It intentionally does NOT re-export Serial.
-Tests patch:
-    app.serial_reader.serial.Serial
-and SerialReader imports from that module directly.
+SerialReader now uses the real pyserial.Serial class directly.
+Tests patch serial.Serial to simulate device behavior.
 """
 
 from .serial_reader import SerialReader
