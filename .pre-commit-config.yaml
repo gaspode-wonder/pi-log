@@ -1,6 +1,8 @@
 default_language_version:
   python: python3.10
 
+fail_fast: false
+
 repos:
   # -----------------------------
   # Core whitespace & formatting
@@ -32,6 +34,7 @@ repos:
       - id: ansible-lint
         name: ansible-lint (pi-log)
         files: ^ansible/
+        stages: [commit]
 
   # -----------------------------
   # Optional Python formatting
