@@ -1,22 +1,38 @@
+# /etc/systemd/system/pi-log.service
 [Unit]
-Description=Pi Log Ingestion Service
-After=network.target
+Description=Pi-Log Beamrider Ingestion Agent
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=pi
+Group=pi
 WorkingDirectory=/opt/pi-log
 
-# Python path fix for Pi 3
-Environment=PYTHONPATH=/opt/pi-log
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="LOGEXP_URL=http://keep-0001.local:8000"
+EnvironmentFile=-/etc/pi-log.env
 
-# Use the venv Python
-ExecStart=/opt/pi-log/.venv/bin/python3.11 -m app.ingestion_loop --config /opt/pi-log/config.toml
+# Command
+ExecStart=/usr/bin/python3 -m pilog.main
 
+# Restart Policy
 Restart=always
-RestartSec=5
+RestartSec=2
 
+# Security Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 

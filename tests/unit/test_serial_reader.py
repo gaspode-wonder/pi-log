@@ -1,6 +1,6 @@
 # filename: tests/unit/test_serial_reader.py
 
-import pytest
+import pytest  # noqa: F401
 from unittest.mock import MagicMock, patch
 
 from app.serial_reader.serial_reader import SerialReader

@@ -2,7 +2,7 @@
 
 from unittest.mock import patch, MagicMock
 from app.serial_reader.serial_reader import SerialReader
-from app.ingestion.csv_parser import parse_geiger_csv
+from app.ingestion.csv_parser import parse_geiger_csv  # noqa: F401
 from app.sqlite_store import insert_record
 
 

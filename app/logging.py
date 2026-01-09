@@ -1,4 +1,4 @@
-# pi-log/app/logging.py
+# filename: app/logging.py
 """
 Modern logging subsystem for pi-log.
 
@@ -9,13 +9,15 @@ Features:
 - Deterministic, future-maintainer-friendly design.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import logging.handlers
-import os
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Union
+
 
 # ----------------------------------------------------------------------
 # Helpers
@@ -23,12 +25,20 @@ from typing import Optional, Union
 
 
 def _ensure_dir(path: Path) -> None:
+    """Ensure the directory exists."""
     path.mkdir(parents=True, exist_ok=True)
 
 
 def _level_from_string(level_str: str) -> int:
+    """
+    Convert a string like "INFO" or "debug" into a logging level int.
+    Falls back to INFO on invalid input.
+    """
     try:
-        return getattr(logging, level_str.upper())
+        level: Any = getattr(logging, level_str.upper(), None)
+        if isinstance(level, int):
+            return level
+        raise ValueError(f"Invalid log level: {level_str}")
     except Exception:
         return logging.INFO
 
@@ -41,7 +51,7 @@ def _level_from_string(level_str: str) -> int:
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
-            "ts": datetime.utcnow().isoformat() + "Z",
+            "ts": datetime.now().isoformat(),
             "level": record.levelname.lower(),
             "logger": record.name,
             "msg": record.getMessage(),
@@ -93,24 +103,24 @@ def setup_logging(config: Optional[Union[dict, object]] = None) -> None:
             config.logging.level
     """
 
-    # ------------------------------------------------------------------
-    # Resolve config
-    # ------------------------------------------------------------------
-    log_dir = "/opt/pi-log/logs"
-    log_level = "INFO"
+    default_dir = "/opt/pi-log/logs"
+    default_level = "INFO"
 
     if config and hasattr(config, "logging"):
-        log_dir = getattr(config.logging, "log_dir", log_dir)
-        log_level = getattr(config.logging, "level", log_level)
+        log_dir_raw = getattr(config.logging, "log_dir", default_dir)
+        log_level_raw = getattr(config.logging, "level", default_level)
+    else:
+        log_dir_raw = default_dir
+        log_level_raw = default_level
 
-    log_dir = Path(log_dir)
+    log_dir = Path(log_dir_raw)
+    log_level = str(log_level_raw)
+
     _ensure_dir(log_dir)
 
     level = _level_from_string(log_level)
 
-    # ------------------------------------------------------------------
     # Root logger
-    # ------------------------------------------------------------------
     root = logging.getLogger()
     root.setLevel(level)
 
@@ -118,9 +128,7 @@ def setup_logging(config: Optional[Union[dict, object]] = None) -> None:
     for h in list(root.handlers):
         root.removeHandler(h)
 
-    # ------------------------------------------------------------------
     # Console Handler (INFO+)
-    # ------------------------------------------------------------------
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
     console.setFormatter(
@@ -131,10 +139,9 @@ def setup_logging(config: Optional[Union[dict, object]] = None) -> None:
     )
     root.addHandler(console)
 
-    # ------------------------------------------------------------------
     # JSON File Handler (DEBUG+)
-    # ------------------------------------------------------------------
     json_path = log_dir / "pi-log.jsonl"
+
     file_handler = logging.handlers.RotatingFileHandler(
         json_path,
         maxBytes=5 * 1024 * 1024,  # 5 MB

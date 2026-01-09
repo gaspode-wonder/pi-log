@@ -1,6 +1,6 @@
 # filename: tests/conftest.py
 
-import os
+import os  # noqa: F401
 import sqlite3
 import pytest
 from unittest.mock import MagicMock, patch

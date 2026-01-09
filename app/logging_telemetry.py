@@ -1,4 +1,4 @@
-# app/logging_telemetry.py
+# filename: app/logging_telemetry.py
 
 """
 Telemetry handler for pi-log.
@@ -16,13 +16,12 @@ Features:
 - Config-driven enable/disable
 """
 
-import json
 import logging
 import queue
 import threading
 import time
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
 import requests
 
@@ -35,7 +34,7 @@ class TelemetryWorker(threading.Thread):
 
     def __init__(
         self,
-        q: queue.Queue,
+        q: queue.Queue[dict[str, Any]],
         base_url: str,
         token: str,
         batch_size: int = 20,
@@ -49,10 +48,10 @@ class TelemetryWorker(threading.Thread):
         self.max_backoff = max_backoff
         self._stop_flag = False
 
-    def stop(self):
+    def stop(self) -> None:
         self._stop_flag = True
 
-    def run(self):
+    def run(self) -> None:
         backoff = 1.0
 
         while not self._stop_flag:
@@ -74,7 +73,7 @@ class TelemetryWorker(threading.Thread):
                 time.sleep(1.0)
 
     def _drain_batch(self) -> List[Dict[str, Any]]:
-        items = []
+        items: list[dict[str, Any]] = []
         try:
             while len(items) < self.batch_size:
                 item = self.q.get_nowait()
@@ -91,7 +90,7 @@ class TelemetryWorker(threading.Thread):
         }
 
         try:
-            resp = requests.post(url, json=batch, timeout=2.0)
+            resp = requests.post(url, json=batch, headers=headers, timeout=2.0)
             return resp.status_code == 200
         except Exception:
             return False
@@ -110,7 +109,10 @@ class TelemetryHandler(logging.Handler):
         batch_size: int = 20,
     ):
         super().__init__(level)
-        self.q = queue.Queue(maxsize=5000)
+
+        # Explicit type annotation required by mypy
+        self.q: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=5000)
+
         self.worker = TelemetryWorker(
             q=self.q,
             base_url=base_url,
@@ -131,7 +133,7 @@ class TelemetryHandler(logging.Handler):
             pass
 
     def _record_to_event(self, record: logging.LogRecord) -> Dict[str, Any]:
-        event = {
+        event: dict[str, Any] = {
             "ts": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname.lower(),
             "logger": record.name,
@@ -168,7 +170,7 @@ class TelemetryHandler(logging.Handler):
 
         return event
 
-    def close(self):
+    def close(self) -> None:
         try:
             self.worker.stop()
         except Exception:

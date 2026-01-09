@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any
 
 from app.serial_reader import SerialReader
 from app.sqlite_store import (

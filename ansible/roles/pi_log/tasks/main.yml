@@ -1,5 +1,5 @@
 # filename: ansible/roles/pi_log/tasks/main.yml
-
+---
 - name: Ensure pi-log directory exists
   ansible.builtin.file:
     path: /opt/pi-log

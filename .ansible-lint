@@ -1,3 +1,29 @@
-exclude_paths:
-  - ansible/molecule
+# Hardened .ansible-lint configuration for pi-log
+# Designed for long-term stability and Molecule v4 compatibility
+---
+# -----------------------------------------
+# Project structure
+# -----------------------------------------
+# All Ansible content lives under ./ansible
 project_dir: ansible
+
+# -----------------------------------------
+# Exclusions
+# -----------------------------------------
+# Molecule scenarios should NOT be linted.
+# They run their own syntax-check and do not represent production playbooks.
+exclude_paths:
+  - ansible/roles/*/molecule
+
+# -----------------------------------------
+# Rule controls
+# -----------------------------------------
+# Keep skip_list empty unless a rule is intentionally disabled.
+# This ensures future maintainers understand every deviation explicitly.
+skip_list: []
+
+# -----------------------------------------
+# Runtime / parser stability
+# -----------------------------------------
+# Use default rule set; avoid deprecated keys.
+use_default_rules: true

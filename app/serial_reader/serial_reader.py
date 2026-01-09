@@ -1,34 +1,33 @@
 # filename: app/serial_reader/serial_reader.py
 
+from __future__ import annotations
+
 import time
+from typing import Any, Callable, Dict, Optional
 import serial
+
 from app.ingestion.csv_parser import parse_geiger_csv
+
+
+ParsedRecord = Dict[str, Any]
+ParsedHandler = Callable[[ParsedRecord], None]
 
 
 class SerialReader:
     """
     Reads raw lines from a serial device, parses them, and forwards parsed
     records to a callback set by the ingestion loop.
-
-    Unit tests expect the constructor signature:
-        SerialReader(device, baudrate=9600, timeout=1.0)
-
-    Tests patch serial.Serial directly:
-        @patch("serial.Serial")
     """
 
-    def __init__(self, device, baudrate=9600, timeout=1.0):
+    def __init__(self, device: str, baudrate: int = 9600, timeout: float = 1.0) -> None:
         self.device = device
         self.baudrate = baudrate
         self.timeout = timeout
 
-        # Serial object is created lazily on first read
-        self.ser = None
+        self.ser: Optional[serial.Serial] = None
+        self._handle_parsed: Optional[ParsedHandler] = None
 
-        # Ingestion loop assigns this callback
-        self._handle_parsed = None
-
-    def read_line(self):
+    def read_line(self) -> str:
         """
         Read a single line from the serial device.
         Returns a decoded UTF-8 string or an empty string on timeout.
@@ -44,25 +43,23 @@ class SerialReader:
         if not raw:
             return ""
 
-        return raw.decode("utf-8", errors="ignore").strip()
+        decoded: str = raw.decode("utf-8", errors="ignore").strip()
+        return decoded
 
-    def run(self):
+    def run(self) -> None:
         """
         Continuously read lines, parse them, and forward parsed records.
-
-        Tests patch Serial.readline() to raise KeyboardInterrupt to stop the loop.
         """
         while True:
             try:
                 raw = self.read_line()
                 parsed = parse_geiger_csv(raw)
 
-                if parsed and self._handle_parsed is not None:
+                if parsed is not None and self._handle_parsed is not None:
                     self._handle_parsed(parsed)
 
             except (KeyboardInterrupt, StopIteration):
                 break
 
             except Exception:
-                # Avoid tight loops on transient errors
                 time.sleep(0.1)

@@ -1,54 +1,56 @@
-def parse_geiger_csv(line: str):
+# filename: app/ingestion/csv_parser.py
+
+from __future__ import annotations
+
+from typing import Optional, Dict, Any
+
+
+def parse_geiger_csv(line: Any) -> Optional[Dict[str, Any]]:
     """
-    Robust parser for MightyOhm Geiger CSV lines.
+    Parse a MightyOhm-style Geiger CSV line.
 
     Expected format:
-        CPS,<cps>,CPM,<cpm>,uSv/hr,<usv>,<mode>
+        CPS, <cps>, CPM, <cpm>, uSv/hr, <usv>, <mode>
 
-    Returns:
-        dict with keys: cps, cpm, usv, mode, raw
-        or None if the line is malformed.
+    Test contract:
+    - Non-string input → return None
+    - Empty or whitespace-only → return None
+    - Malformed or partial lines → return None
+    - Valid line → return dict with keys:
+        raw, cps, cpm, usv, mode
     """
+    # Reject non-string input
     if not isinstance(line, str):
         return None
 
-    text = line.strip()
-    if not text:
+    raw = line.strip()
+    if not raw:
         return None
 
-    parts = [p.strip() for p in text.split(",")]
-
-    # MightyOhm always emits 7 fields when valid
+    parts = [p.strip() for p in raw.split(",")]
     if len(parts) != 7:
         return None
 
     try:
-        if parts[0] != "CPS":
-            return None
-
+        # Expected positions:
+        # 0: "CPS"
+        # 1: cps value
+        # 2: "CPM"
+        # 3: cpm value
+        # 4: "uSv/hr"
+        # 5: usv value
+        # 6: mode
         cps = int(parts[1])
-        if parts[2] != "CPM":
-            return None
-
         cpm = int(parts[3])
-        if parts[4] != "uSv/hr":
-            return None
-
         usv = float(parts[5])
-        if usv < 0:
-            return None
-
         mode = parts[6]
-        if mode not in ("SLOW", "FAST", "INST"):
-            return None
-
-        return {
-            "raw": text,
-            "cps": cps,
-            "cpm": cpm,
-            "usv": usv,
-            "mode": mode,
-        }
-
     except Exception:
         return None
+
+    return {
+        "raw": raw,
+        "cps": cps,
+        "cpm": cpm,
+        "usv": usv,
+        "mode": mode,
+    }

@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 
 from app.serial_reader.serial_reader import SerialReader
-from app.ingestion.csv_parser import parse_geiger_csv
+from app.ingestion.csv_parser import parse_geiger_csv  # noqa: F401
 from app.sqlite_store import insert_record, get_unpushed_records
 from app.models import GeigerRecord
 
