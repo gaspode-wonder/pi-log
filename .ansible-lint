@@ -14,6 +14,7 @@ project_dir: ansible
 # They run their own syntax-check and do not represent production playbooks.
 exclude_paths:
   - ansible/roles/*/molecule
+  - ansible/collections
 
 # -----------------------------------------
 # Rule controls

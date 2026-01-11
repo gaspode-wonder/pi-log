@@ -21,8 +21,8 @@ from app.models import GeigerRecord
 def run_pipeline(
     device_path: str,
     db_path: str,
-    api_url: str,
-    api_token: str,
+    api_url: str | None,
+    api_token: str | None,
     push_interval: int,
     device_id: str = "pi-log",
 ) -> None:
@@ -34,12 +34,15 @@ def run_pipeline(
         - Continuously read MightyOhm CSV lines
         - Parse them into canonical GeigerRecord objects
         - Store them locally (including raw + timestamp)
-        - Periodically push unpushed records to LogExp
+        - Periodically push unpushed records to LogExp (if enabled)
         - Mark records as pushed on success
     """
 
     initialize_db(db_path)
-    client = PushClient(api_url, api_token)
+
+    # API push is optional now
+    push_enabled = bool(api_url and api_token)
+    client = PushClient(api_url, api_token) if push_enabled else None
 
     def handle_parsed(parsed: dict[str, Any]) -> None:
         """
@@ -64,12 +67,17 @@ def run_pipeline(
 
             now = time.time()
             if now - last_push >= push_interval:
-                records = get_unpushed_records(db_path)
-                if records:
-                    pushed_ids = client.push(records)
-                    if pushed_ids:
-                        mark_records_pushed(db_path, pushed_ids)
+                if push_enabled:
+                    assert client is not None  # type narrowing for Pylance
+
+                    records = get_unpushed_records(db_path)
+                    if records:
+                        pushed_ids = client.push(records)
+                        if pushed_ids:
+                            mark_records_pushed(db_path, pushed_ids)
+
                 last_push = now
+
 
     except KeyboardInterrupt:
         # Graceful shutdown for tests and service stop
@@ -93,12 +101,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--api-url",
-        required=True,
+        required=False,
         help="LogExp ingestion API URL",
     )
     parser.add_argument(
         "--api-token",
-        required=True,
+        required=False,
         help="LogExp API token",
     )
     parser.add_argument(

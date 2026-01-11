@@ -1,12 +1,54 @@
 # filename: ansible/roles/pi_log/tasks/main.yml
 ---
-- name: Ensure pi-log directory exists
+
+- name: Ensure /opt/pi-log exists
   ansible.builtin.file:
     path: /opt/pi-log
     state: directory
     owner: root
     group: root
     mode: "0755"
+
+- name: Blow out contents of /opt/pi-log
+  ansible.builtin.file:
+    path: /opt/pi-log
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+    recurse: true
+
+- name: Recreate /opt/pi-log after blowout
+  ansible.builtin.file:
+    path: /opt/pi-log
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Canonical repo sync — the ONLY sync
+- name: Sync application source to /opt/pi-log
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir | dirname }}/"
+    dest: /opt/pi-log
+    delete: true
+    rsync_opts:
+      - "--exclude=/.git/"
+      - "--exclude=/.github/"
+      - "--exclude=/.venv/"
+      - "--exclude=/ansible/"
+      - "--exclude=/molecule/"
+      - "--exclude=/tests/"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=*.pyo"
+      - "--exclude=.pytest_cache"
+      - "--exclude=.mypy_cache"
+      - "--exclude=.ruff_cache"
+      - "--exclude=*.swp"
+      - "--exclude=*.swo"
+      - "--exclude=.DS_Store"
+      - "--exclude=*.log"
 
 - name: Ensure config directory exists
   ansible.builtin.file:
@@ -23,6 +65,18 @@
     owner: root
     group: root
     mode: "0644"
+  notify: Restart pi-log service
+
+- name: Ensure virtual environment exists
+  ansible.builtin.command:
+    cmd: python3.11 -m venv /opt/pi-log/.venv
+    creates: /opt/pi-log/.venv/bin/activate
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: /opt/pi-log/requirements.txt
+    virtualenv: /opt/pi-log/.venv
+  notify: Restart pi-log service
 
 - name: Deploy systemd service
   ansible.builtin.template:
@@ -31,28 +85,25 @@
     owner: root
     group: root
     mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart pi-log service
 
-- name: Install pi-log Python package
-  ansible.builtin.pip:
-    name: /opt/pi-log
-    editable: true
+- name: Restart pi-log service after deploy
+  ansible.builtin.systemd:
+    name: pi-log
+    state: restarted
+    enabled: true
 
-- name: Copy pi-log executable wrapper
-  ansible.builtin.copy:
-    src: pi-log.sh
-    dest: /usr/local/bin/pi-log
-    mode: "0755"
-
-- name: Reload systemd daemon
+# -------------------------
+# Handlers
+# -------------------------
+- name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Enable pi-log service
+- name: Restart pi-log service
   ansible.builtin.systemd:
     name: pi-log
     enabled: true
-
-- name: Start pi-log service
-  ansible.builtin.systemd:
-    name: pi-log
-    state: started
+    state: restarted

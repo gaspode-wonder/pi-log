@@ -1,3 +1,5 @@
+# filename: pi-log.service.j2
+
 [Unit]
 Description=Pi Log Ingestion Service
 After=network.target
@@ -8,9 +10,18 @@ User=root
 Group=root
 WorkingDirectory=/opt/pi-log
 
+# Ensure Python resolves the app/ package correctly
 Environment=PYTHONPATH=/opt/pi-log
 
-ExecStart=/opt/pi-log/.venv/bin/python3.11 -m app.ingestion_loop --config /opt/pi-log/config.toml
+# API URL and token intentionally disabled (false)
+# This matches the decision made this morning.
+ExecStart=/opt/pi-log/.venv/bin/python3.11 -m app.ingestion.geiger_reader \
+  --device {{ pi_log_serial_device }} \
+  --db {{ pi_log_db_path }} \
+  --api-url "" \
+  --api-token "" \
+  --push-interval 1 \
+  --device-id {{ inventory_hostname }}
 
 Restart=always
 RestartSec=5

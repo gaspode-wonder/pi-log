@@ -12,6 +12,21 @@ version = 1
 level = "INFO"
 log_dir = "/opt/pi-log/logs"
 
+# --- dictConfig additions ---
+[logging.handlers.console]
+class = "logging.StreamHandler"
+level = "INFO"
+formatter = "standard"
+stream = "ext://sys.stdout"
+
+[logging.formatters.standard]
+format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+[logging.root]
+level = "INFO"
+handlers = ["console"]
+# --- end dictConfig additions ---
+
 [ingestion]
 poll_interval = 1
 

@@ -1,0 +1,5 @@
+# ansible/inventory/host_vars/beamrider-0001.yml
+
+pi_log_serial_device: "/dev/mightyohm"
+pi_log_baudrate: 9600
+pi_log_device_type: "mightyohm"

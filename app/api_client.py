@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import List
+from typing import List, Optional
 
 import requests
 
@@ -21,9 +21,18 @@ class PushClient:
         - Returns the list of successfully pushed record IDs
 
     Local-only fields (raw, timestamp, pushed, id) are NOT sent.
+
+    NOTE:
+        api_url and api_token may be Optional at the type level,
+        but this client will raise if constructed without both.
+        geiger_reader.py ensures this never happens in practice.
     """
 
-    def __init__(self, api_url: str, api_token: str):
+    def __init__(self, api_url: Optional[str], api_token: Optional[str]):
+        if api_url is None or api_token is None:
+            raise ValueError("PushClient requires both api_url and api_token")
+
+        # Safe to use as str from here on
         self.api_url = api_url.rstrip("/")
         self.api_token = api_token
 
@@ -73,7 +82,7 @@ class PushClient:
             return []
 
         # Map pushed IDs back to local DB IDs
-        local_ids = []
+        local_ids: List[int] = []
         for rec in records:
             if rec.id is not None and rec.id in pushed_ids:
                 local_ids.append(rec.id)
