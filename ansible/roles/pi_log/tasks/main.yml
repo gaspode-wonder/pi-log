@@ -1,5 +1,6 @@
 # filename: ansible/roles/pi_log/tasks/main.yml
 ---
+
 - name: Ensure /opt/pi-log exists
   ansible.builtin.file:
     path: /opt/pi-log
@@ -32,23 +33,22 @@
     dest: /opt/pi-log
     delete: true
     rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=.github"
-      - "--exclude=.venv"
+      - "--exclude=/.git/"
+      - "--exclude=/.github/"
+      - "--exclude=/.venv/"
+      - "--exclude=/ansible/"
+      - "--exclude=/molecule/"
+      - "--exclude=/tests/"
       - "--exclude=__pycache__"
       - "--exclude=*.pyc"
       - "--exclude=*.pyo"
       - "--exclude=.pytest_cache"
       - "--exclude=.mypy_cache"
       - "--exclude=.ruff_cache"
-      - "--exclude=tests"
-      - "--exclude=ansible"
-      - "--exclude=molecule"
       - "--exclude=*.swp"
       - "--exclude=*.swo"
       - "--exclude=.DS_Store"
       - "--exclude=*.log"
-  notify: Restart pi-log service
 
 - name: Ensure config directory exists
   ansible.builtin.file:
