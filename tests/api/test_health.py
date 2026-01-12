@@ -1,4 +1,5 @@
-from tests.api.conftest import client
+# no import — pytest fixture "client" is provided automatically
+
 
 def test_health_ok(client):
     response = client.get("/health")

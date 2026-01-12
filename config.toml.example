@@ -1,0 +1,22 @@
+[serial]
+device = "/dev/ttyUSB0"
+baudrate = 9600
+
+[sqlite]
+path = "/opt/pi-log/readings.db"
+
+[ingestion]
+poll_interval = 1
+
+[api]
+enabled = false
+base_url = ""
+token = ""
+
+[push]
+enabled = false
+url = ""
+api_key = ""
+
+[telemetry]
+enabled = false

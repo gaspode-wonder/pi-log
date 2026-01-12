@@ -1,26 +1,39 @@
-from typing import Union
-import os
+# filename: app/config_loader.py
+
+from __future__ import annotations
+
+import tomllib
 from pathlib import Path
-
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:
-    import tomli as tomllib  # Python 3.9 fallback
+from typing import Any, Dict, Union
 
 
-BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_CONFIG_PATH = Path("/opt/pi-log/config.toml")
+DEFAULT_CONFIG_PATH = Path("config.toml")
 
 
-def load_config(path: Union[str, os.PathLike] = DEFAULT_CONFIG_PATH) -> dict:
+class SettingsNamespace:
     """
-    Load a TOML config file and return a dict.
+    Recursive namespace wrapper for config dictionaries.
+    """
 
-    Behavior required by tests:
-      - If file exists and is valid TOML → return parsed dict.
-      - If file missing → return {}.
-      - If file unreadable → return {}.
-      - If file malformed → return {}.
+    def __init__(self, data: Dict[str, Any]) -> None:
+        for key, value in data.items():
+            if isinstance(value, dict):
+                setattr(self, key, SettingsNamespace(value))
+            else:
+                setattr(self, key, value)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+
+def load_config(path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> Union[Dict[str, Any], SettingsNamespace]:
+    """
+    Load a TOML config file.
+
+    Test contract:
+    - Missing file → return {}
+    - Unreadable/malformed file → return {}
+    - Valid file → return SettingsNamespace
     """
     path = Path(path)
 
@@ -29,25 +42,15 @@ def load_config(path: Union[str, os.PathLike] = DEFAULT_CONFIG_PATH) -> dict:
 
     try:
         with path.open("rb") as f:
-            data = tomllib.load(f)
-            return SettingsNamespace(data)
+            data: Any = tomllib.load(f)
     except Exception:
         return {}
 
+    result: Union[Dict[str, Any], SettingsNamespace]
 
-class SettingsNamespace:
-    def __init__(self, data):
-        for key, value in data.items():
-            if isinstance(value, dict):
-                setattr(self, key, SettingsNamespace(value))
-            else:
-                setattr(self, key, value)
+    if isinstance(data, dict):
+        result = SettingsNamespace(data)
+    else:
+        result = {}
 
-    def get(self, key, default=None):
-        return getattr(self, key, default)
-
-
-# Tests expect CONFIG to exist at module level.
-# It must NOT load /opt/pi-log/config.toml during import.
-# So we return {} here, and runtime code loads real config explicitly.
-CONFIG = {}
+    return result

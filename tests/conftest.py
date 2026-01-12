@@ -1,114 +1,184 @@
-import os
-import tempfile
+# filename: tests/conftest.py
+
+import os  # noqa: F401
+import sqlite3
 import pytest
 from unittest.mock import MagicMock, patch
+from fastapi.testclient import TestClient
 
+from app.api import app, get_store
 from app.settings import Settings
-from app.ingestion.ingestion_loop import IngestionLoop
-from app.sqlite_store import SQLiteStore
+from app.sqlite_store import initialize_db, insert_record
+from app.api_client import PushClient
+from app.models import GeigerRecord
+
 
 # ---------------------------------------------------------------------------
-# GLOBAL SAFETY PATCH: SerialReader is ALWAYS mocked
+# GLOBAL: Mock SerialReader so no test touches real hardware
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _patch_serial_reader():
-    """
-    Ensures no test ever instantiates a real SerialReader.
-    Applies to ALL tests automatically.
-    """
-    with patch("app.ingestion_loop.SerialReader") as mock_reader:
+    # Patch the canonical serial reader path
+    with patch("app.serial_reader.serial_reader.SerialReader") as mock_reader:
         mock_reader.return_value = MagicMock()
         yield
+
 
 # ---------------------------------------------------------------------------
 # SETTINGS FIXTURES
 # ---------------------------------------------------------------------------
 
-@pytest.fixture
-def fake_settings():
-    return Settings.from_dict({
-        "serial": {"device": "/dev/fake", "baudrate": 9600},
-        "sqlite": {"path": ":memory:"},
-        "api": {"enabled": False},
-        "push": {"enabled": False},
-        "ingestion": {"poll_interval": 0.0},
-    })
-
 
 @pytest.fixture
-def temp_db():
-    tmp = tempfile.NamedTemporaryFile(delete=False)
-    tmp.close()
-    try:
-        yield tmp.name
-    finally:
-        if os.path.exists(tmp.name):
-            os.unlink(tmp.name)
-
-
-@pytest.fixture
-def temp_db_settings(temp_db):
-    return Settings.from_dict({
-        "serial": {"device": "/dev/fake", "baudrate": 9600},
-        "sqlite": {"path": temp_db},
-        "api": {"enabled": False},
-        "push": {"enabled": False},
-        "ingestion": {"poll_interval": 0.0},
-    })
+def fake_settings(tmp_path):
+    db_path = tmp_path / "test.db"
+    return Settings.from_dict(
+        {
+            "serial": {"device": "/dev/fake", "baudrate": 9600},
+            "sqlite": {"path": str(db_path)},
+            "api": {"enabled": False},
+            "push": {"enabled": False},
+            "ingestion": {"poll_interval": 0.0},
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
-# LOOP FACTORY — SIMPLE, SAFE, NO PATCHING
+# SQLITE FIXTURES (canonical geiger_readings only)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
-def loop_factory(fake_settings):
-    """
-    Returns a function that constructs a fresh IngestionLoop(fake_settings).
-    Tests patch SerialReader themselves when needed.
-    """
-    def _factory(settings_override=None):
-        settings = (
-            Settings.from_dict(settings_override)
-            if settings_override else fake_settings
-        )
-        return IngestionLoop(settings)
+def temp_db(tmp_path):
+    db_path = tmp_path / "test.db"
+    initialize_db(str(db_path))
+    return str(db_path)
+
+
+@pytest.fixture
+def db_with_records(temp_db):
+    def _loader(records):
+        for rec in records:
+            insert_record(temp_db, rec)
+        return temp_db
+
+    return _loader
+
+
+# ---------------------------------------------------------------------------
+# PUSH CLIENT FIXTURE
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def push_client():
+    return PushClient(api_url="http://example.com", api_token="TOKEN")
+
+
+# ---------------------------------------------------------------------------
+# GEIGER RECORD FACTORY
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def geiger_record():
+    def _factory(**overrides):
+        base = {
+            "raw": "RAW",
+            "counts_per_second": 10,
+            "counts_per_minute": 600,
+            "microsieverts_per_hour": 0.10,
+            "mode": "FAST",
+            "device_id": "pi-log",
+        }
+        base.update(overrides)
+        return GeigerRecord(**base)
 
     return _factory
 
 
 # ---------------------------------------------------------------------------
-# READER FACTORY
+# API TEST STORE + CLIENT FIXTURE
 # ---------------------------------------------------------------------------
 
+
+class _TestStore:
+    """A minimal store wrapper for API tests."""
+
+    def __init__(self, db_path):
+        self.db_path = db_path
+        initialize_db(db_path)
+
+    def get_latest_reading(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            row = conn.execute(
+                """
+                SELECT id, raw, counts_per_second, counts_per_minute,
+                       microsieverts_per_hour, mode, device_id,
+                       timestamp, pushed
+                FROM geiger_readings
+                ORDER BY id DESC LIMIT 1
+                """
+            ).fetchone()
+            if row is None:
+                return None
+            return {
+                "id": row[0],
+                "raw": row[1],
+                "cps": row[2],
+                "cpm": row[3],
+                "mode": row[5],
+                "timestamp": row[7],
+            }
+        finally:
+            conn.close()
+
+    def get_recent_readings(self, limit=10):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, raw, counts_per_second, counts_per_minute,
+                       microsieverts_per_hour, mode, device_id,
+                       timestamp, pushed
+                FROM geiger_readings
+                ORDER BY id DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "raw": r[1],
+                    "cps": r[2],
+                    "cpm": r[3],
+                    "mode": r[5],
+                    "timestamp": r[7],
+                }
+                for r in rows
+            ]
+        finally:
+            conn.close()
+
+    def count_readings(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            (count,) = conn.execute("SELECT COUNT(*) FROM geiger_readings").fetchone()
+            return count
+        finally:
+            conn.close()
+
+
 @pytest.fixture
-def reader_factory():
-    def _factory(lines):
-        mock_reader = MagicMock()
-        mock_reader.read_line.side_effect = lines
-        return mock_reader
-    return _factory
+def client(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "api_test.db")
+    store = _TestStore(db_path)
 
+    def override_get_store():
+        return store
 
-# ---------------------------------------------------------------------------
-# FAKE API + STORE
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def fake_api():
-    class FakeAPI:
-        def __init__(self):
-            self.calls = []
-
-        def push_record(self, record_id, record):
-            self.calls.append((record_id, record))
-
-    return FakeAPI()
-
-
-@pytest.fixture
-def fake_store(temp_db):
-    store = SQLiteStore(temp_db)
-    store.initialize_db()
-    return store
+    app.dependency_overrides[get_store] = override_get_store
+    return TestClient(app)

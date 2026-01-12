@@ -1,5 +1,15 @@
+# filename: ansible/roles/pi_log/tasks/main.yml
 ---
-- name: Ensure /opt/pi-log exists
+
+# --------------------------------------------------------------------
+# 0. Hard blow‑out: remove /opt/pi-log entirely, then recreate it clean
+# --------------------------------------------------------------------
+- name: Remove /opt/pi-log completely
+  ansible.builtin.file:
+    path: /opt/pi-log
+    state: absent
+
+- name: Recreate /opt/pi-log directory
   ansible.builtin.file:
     path: /opt/pi-log
     state: directory
@@ -7,109 +17,89 @@
     group: root
     mode: "0755"
 
-- name: Ensure /opt/pi-log/logs exists
+# --------------------------------------------------------------------
+# 1. Canonical repo sync — the ONLY sync
+# --------------------------------------------------------------------
+- name: Sync application source to /opt/pi-log
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir | dirname }}/"
+    dest: /opt/pi-log
+    delete: true
+    rsync_opts:
+      - "--exclude=/.git/"
+      - "--exclude=/.github/"
+      - "--exclude=/.venv/"
+      - "--exclude=/ansible/"
+      - "--exclude=/molecule/"
+      - "--exclude=/tests/"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=*.pyo"
+      - "--exclude=.pytest_cache"
+      - "--exclude=.mypy_cache"
+      - "--exclude=.ruff_cache"
+      - "--exclude=*.swp"
+      - "--exclude=*.swo"
+      - "--exclude=.DS_Store"
+      - "--exclude=*.log"
+
+# --------------------------------------------------------------------
+# 2. Config directory + config.toml
+# --------------------------------------------------------------------
+- name: Ensure config directory exists
   ansible.builtin.file:
-    path: /opt/pi-log/logs
+    path: /etc/pi-log
     state: directory
     owner: root
     group: root
     mode: "0755"
 
-- name: Ensure /var/lib/pi-log exists
-  ansible.builtin.file:
-    path: /var/lib/pi-log
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Remove old application directory
-  ansible.builtin.file:
-    path: /opt/pi-log/app
-    state: absent
-
-- name: Deploy application package
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../app/"
-    dest: /opt/pi-log/app/
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Ensure /opt/pi-log/app/logging exists
-  ansible.builtin.file:
-    path: /opt/pi-log/app/logging
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Deploy logging config
-  ansible.builtin.copy:
-    src: app/logging/logging.toml
-    dest: /opt/pi-log/app/logging/logging.toml
-    owner: root
-    group: root
-    mode: "0644"
-
-- name: Deploy ingestion config
+- name: Deploy config.toml
   ansible.builtin.template:
     src: config.toml.j2
-    dest: /opt/pi-log/config.toml
+    dest: /etc/pi-log/config.toml
     owner: root
     group: root
     mode: "0644"
+  notify: Restart pi-log service
 
-# ----------------------------------------
-# Python virtual environment
-# ----------------------------------------
-
-- name: Ensure Python venv directory exists
-  ansible.builtin.file:
-    path: /opt/pi-log/.venv
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Create Python virtual environment
+# --------------------------------------------------------------------
+# 3. Virtual environment + dependencies
+# --------------------------------------------------------------------
+- name: Create virtual environment
   ansible.builtin.command:
-    cmd: python3 -m venv /opt/pi-log/.venv
+    cmd: python3.11 -m venv /opt/pi-log/.venv
     creates: /opt/pi-log/.venv/bin/activate
 
-- name: Install Python dependencies into venv
+- name: Install Python dependencies
   ansible.builtin.pip:
     requirements: /opt/pi-log/requirements.txt
     virtualenv: /opt/pi-log/.venv
+  notify: Restart pi-log service
 
-- name: Install ingestion systemd unit
+# --------------------------------------------------------------------
+# 4. Systemd service deployment
+# --------------------------------------------------------------------
+- name: Deploy systemd service
   ansible.builtin.template:
     src: pi-log.service.j2
     dest: /etc/systemd/system/pi-log.service
     owner: root
     group: root
     mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart pi-log service
 
-- name: Install API systemd unit
-  ansible.builtin.template:
-    src: pi-log-api.service.j2
-    dest: /etc/systemd/system/pi-log-api.service
-    owner: root
-    group: root
-    mode: "0644"
-
+# --------------------------------------------------------------------
+# Handlers
+# --------------------------------------------------------------------
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true
 
-- name: Enable and restart ingestion service
+- name: Restart pi-log service
   ansible.builtin.systemd:
-    name: pi-log.service
-    enabled: true
-    state: restarted
-
-- name: Enable and restart API service
-  ansible.builtin.systemd:
-    name: pi-log-api.service
+    name: pi-log
     enabled: true
     state: restarted

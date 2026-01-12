@@ -1,14 +1,19 @@
+# filename: tests/unit/test_logging_loader_missing_file.py
+
 from unittest.mock import patch
-from app.logging import get_logger
+from app.logging import get_logger, setup_logging
 
 
-@patch("app.logging.os.path.exists", return_value=False)
-@patch("app.logging.logging.config.dictConfig")
-def test_logging_fallback_when_config_missing(mock_dict_config, _):
+@patch("logging.handlers.RotatingFileHandler._open", return_value=None)
+@patch("app.logging.Path.mkdir")
+def test_logging_initialization_when_config_missing(mock_mkdir, mock_open_handler):
     """
-    If logging.toml does not exist, the loader should fall back to
-    console-only logging and not raise an exception.
+    The new logging system does not load or check for any external config file.
+    Logging must initialize cleanly and produce a usable logger.
     """
+    setup_logging()
     log = get_logger("missing_config_test")
+    log.info("test message")
+
     assert log is not None
-    assert mock_dict_config.called
+    assert mock_mkdir.called

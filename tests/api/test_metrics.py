@@ -1,4 +1,5 @@
-from tests.api.conftest import client
+# no import — pytest fixture "client" is provided automatically
+
 
 def test_metrics_shape(client):
     response = client.get("/metrics")

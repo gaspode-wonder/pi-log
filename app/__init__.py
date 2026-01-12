@@ -1,3 +1,4 @@
-import warnings
-from urllib3.exceptions import NotOpenSSLWarning
-warnings.filterwarnings("ignore", category=NotOpenSSLWarning)
+# pi-log/app/__init__.py
+"""
+pi-log application package.
+"""

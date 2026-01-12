@@ -169,6 +169,25 @@ deployment on Raspberry Pi systems.
 
 ---
 
+## Import Path Fix for Raspberry Pi 3
+
+Raspberry Pi 3 devices running Python 3.11 require an explicit `.pth` file
+inside the virtual environment to ensure the `app` package is importable
+when launched under systemd.
+
+Create the file:
+
+    /opt/pi-log/.venv/lib/python3.11/site-packages/pi_log_path.pth
+
+With the following content:
+
+    /opt/pi-log
+
+This ensures that `python -m app.ingestion_loop` works consistently under
+systemd, regardless of environment propagation quirks on Pi 3 hardware.
+
+---
+
 ## License
 
 MIT

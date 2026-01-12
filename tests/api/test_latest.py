@@ -1,4 +1,5 @@
-from tests.api.conftest import client
+# no import — pytest fixture "client" is provided automatically
+
 
 def test_latest_not_found_when_empty(client):
     response = client.get("/readings/latest")

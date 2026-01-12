@@ -1,0 +1,20 @@
+# ansible/roles/pi_log/molecule/default/prepare.yml
+---
+- name: Prepare test instance
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure Python is installed
+      ansible.builtin.package:
+        name: python3
+        state: present
+
+    - name: Ensure systemd is available
+      ansible.builtin.package:
+        name: systemd
+        state: present
+
+    - name: Update apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_os_family == "Debian"

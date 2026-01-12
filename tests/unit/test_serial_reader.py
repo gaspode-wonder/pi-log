@@ -1,11 +1,13 @@
-import pytest
+# filename: tests/unit/test_serial_reader.py
+
+import pytest  # noqa: F401
 from unittest.mock import MagicMock, patch
 
-from app.serial_reader import SerialReader
+from app.serial_reader.serial_reader import SerialReader
 
 
-@patch("app.serial_reader.parse_geiger_csv")
-@patch("app.serial_reader.serial.Serial")
+@patch("app.serial_reader.serial_reader.parse_geiger_csv")
+@patch("app.serial_reader.serial_reader.serial.Serial")
 def test_serial_reader_reads_lines(mock_serial, mock_parse):
     # Mock serial port returning two valid lines then stopping
     mock_port = MagicMock()
@@ -34,8 +36,8 @@ def test_serial_reader_reads_lines(mock_serial, mock_parse):
     assert mock_handler.call_args_list[1].args[0]["cps"] == 20
 
 
-@patch("app.serial_reader.parse_geiger_csv")
-@patch("app.serial_reader.serial.Serial")
+@patch("app.serial_reader.serial_reader.parse_geiger_csv")
+@patch("app.serial_reader.serial_reader.serial.Serial")
 def test_serial_reader_skips_malformed_lines(mock_serial, mock_parse):
     mock_port = MagicMock()
     mock_port.readline.side_effect = [

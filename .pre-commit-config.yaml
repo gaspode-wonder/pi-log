@@ -1,5 +1,8 @@
+---
 default_language_version:
   python: python3.10
+
+fail_fast: false
 
 repos:
   # -----------------------------
@@ -24,7 +27,7 @@ repos:
         args: ["-c", "yamllint.yml"]
 
   # -----------------------------
-  # Ansible linting (your existing hook)
+  # Ansible linting (pi-log)
   # -----------------------------
   - repo: https://github.com/ansible/ansible-lint
     rev: v24.2.0
@@ -32,6 +35,22 @@ repos:
       - id: ansible-lint
         name: ansible-lint (pi-log)
         files: ^ansible/
+        stages: [commit]
+        additional_dependencies:
+          - ansible-core
+          - ansible
+          - ansible-lint
+          - ansible-compat
+          - ansible-pygments
+
+  - repo: local
+    hooks:
+      - id: install-ansible-collections
+        name: Install Ansible Galaxy collections for linting
+        entry: bash -c "ansible-galaxy collection install ansible.posix community.general"
+        language: system
+        pass_filenames: false
+        stages: [commit]
 
   # -----------------------------
   # Optional Python formatting
