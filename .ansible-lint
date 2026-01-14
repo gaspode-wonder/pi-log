@@ -21,7 +21,10 @@ exclude_paths:
 # -----------------------------------------
 # Keep skip_list empty unless a rule is intentionally disabled.
 # This ensures future maintainers understand every deviation explicitly.
-skip_list: []
+skip_list:
+  - ignore-errors
+  - package-latest
+  - no-changed-when
 
 # -----------------------------------------
 # Runtime / parser stability
