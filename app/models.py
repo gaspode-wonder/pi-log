@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -39,6 +39,17 @@ class GeigerRecord:
     timestamp: datetime
     pushed: bool = False
 
+    # ------------------------------------------------------------
+    # Generic dict serializer (used by PushClient)
+    # ------------------------------------------------------------
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["timestamp"] = self.timestamp.isoformat()
+        return d
+
+    # ------------------------------------------------------------
+    # Construct from parsed CSV
+    # ------------------------------------------------------------
     @classmethod
     def from_parsed(
         cls,
@@ -46,13 +57,6 @@ class GeigerRecord:
         device_id: str = "pi-log",
         timestamp: Optional[datetime] = None,
     ) -> GeigerRecord:
-        """
-        Construct a GeigerRecord from the parsed CSV dict produced by
-        parse_geiger_csv(), plus a device_id and an optional timestamp.
-
-        The parsed dict is expected to have keys:
-            raw, cps, cpm, usv, mode
-        """
         if timestamp is None:
             timestamp = datetime.now(timezone.utc)
 
@@ -68,28 +72,22 @@ class GeigerRecord:
             pushed=False,
         )
 
+    # ------------------------------------------------------------
+    # Payload for LogExp ingestion API
+    # ------------------------------------------------------------
     def to_logexp_payload(self) -> dict[str, Any]:
-        """
-        Produce the canonical ingestion payload expected by LogExp.
-
-        This is the wire contract for POSTs into LogExp's ingestion endpoint.
-        Local-only fields like raw, timestamp, id, and pushed are not sent.
-        """
         return {
             "counts_per_second": self.counts_per_second,
             "counts_per_minute": self.counts_per_minute,
             "microsieverts_per_hour": self.microsieverts_per_hour,
-            "mode": self.mode,
+            "mode": self.mode.upper(),
             "device_id": self.device_id,
         }
 
+    # ------------------------------------------------------------
+    # SQLite row mapping
+    # ------------------------------------------------------------
     def to_db_row(self) -> dict[str, Any]:
-        """
-        Convert this record into a dict suitable for SQLite insertion/update.
-
-        The exact column names are enforced in sqlite_store.py; this method
-        centralizes the mapping from the dataclass to DB field names.
-        """
         return {
             "id": self.id,
             "raw": self.raw,
@@ -104,15 +102,9 @@ class GeigerRecord:
 
     @classmethod
     def from_db_row(cls, row: dict[str, Any]) -> GeigerRecord:
-        """
-        Reconstruct a GeigerRecord from a SQLite row dict.
-
-        This is the inverse of to_db_row() and is used when loading readings
-        for push or inspection.
-        """
         ts_raw = row.get("timestamp")
+
         if isinstance(ts_raw, str):
-            # SQLite stores timestamps as ISO strings for simplicity
             timestamp = datetime.fromisoformat(ts_raw)
         elif isinstance(ts_raw, datetime):
             timestamp = ts_raw

@@ -1,3 +1,0 @@
-# ansible/inventory/host_vars/beamrider-0001.yml
----
-device_role: ingestion

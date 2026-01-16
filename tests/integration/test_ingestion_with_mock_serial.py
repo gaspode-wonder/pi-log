@@ -3,13 +3,13 @@
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 
-from app.serial_reader.serial_reader import SerialReader
+from app.ingestion.serial_reader import SerialReader
 from app.ingestion.csv_parser import parse_geiger_csv  # noqa: F401
 from app.sqlite_store import insert_record, get_unpushed_records
 from app.models import GeigerRecord
 
 
-@patch("app.serial_reader.serial_reader.serial.Serial")
+@patch("app.ingestion.serial_reader.serial.Serial")
 def test_serial_to_parser_to_storage(mock_serial, temp_db):
     mock_port = MagicMock()
     mock_port.readline.side_effect = [

@@ -25,8 +25,13 @@ class SettingsNamespace:
     def get(self, key: str, default: Any = None) -> Any:
         return getattr(self, key, default)
 
+    def __getattr__(self, name: str) -> None:
+        raise AttributeError(f"No such config section: {name}")
 
-def load_config(path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> Union[Dict[str, Any], SettingsNamespace]:
+
+def load_config(
+    path: Union[str, Path] = DEFAULT_CONFIG_PATH,
+) -> Union[Dict[str, Any], SettingsNamespace]:
     """
     Load a TOML config file.
 
@@ -36,6 +41,7 @@ def load_config(path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> Union[Dict[str,
     - Valid file → return SettingsNamespace
     """
     path = Path(path)
+    print(">>> loading:", path)
 
     if not path.exists():
         return {}
@@ -43,6 +49,8 @@ def load_config(path: Union[str, Path] = DEFAULT_CONFIG_PATH) -> Union[Dict[str,
     try:
         with path.open("rb") as f:
             data: Any = tomllib.load(f)
+            print(">>> parsed:", data)
+
     except Exception:
         return {}
 

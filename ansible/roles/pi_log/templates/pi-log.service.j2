@@ -1,31 +1,37 @@
-# filename: pi-log.service.j2
-
+# filename: ansible/roles/pi_log/templates/pi-log.service.j2
 [Unit]
 Description=Pi Log Ingestion Service
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
 Group=root
+
+# Ensure the working directory always exists
 WorkingDirectory=/opt/pi-log
 
-# Ensure Python resolves the app/ package correctly
-Environment=PYTHONPATH=/opt/pi-log
-
+# Deterministic, fully quoted ExecStart
 ExecStart=/opt/pi-log/.venv/bin/python3.11 -m app.ingestion.geiger_reader \
-  --device {{ pi_log_serial_device }} \
-  --db {{ pi_log_db_path }} \
-  --api-url {{ pi_log_push_url }} \
-  --api-token "" \
-  --push-interval 1 \
-  --device-id {{ inventory_hostname }}
+    --device "{{ pi_log_device }}" \
+    --baudrate "{{ pi_log_baudrate }}" \
+    --device-type "{{ pi_log_device_type }}" \
+    --db "{{ pi_log_db_path }}" \
+    --device-id "{{ pi_log_device_id }}" \
+    {% if pi_log_push_enabled %}
+    --api-url "{{ pi_log_push_url }}" \
+    --api-token "{{ pi_log_api_token }}" \
+    {% endif %}
+
+
+# Kill any stale serial users after exit
+ExecStopPost=/bin/sh -c '/usr/bin/fuser -k "{{ pi_log_device }}" || true'
 
 Restart=always
-RestartSec=5
+RestartSec=2
 
-StandardOutput=journal
-StandardError=journal
+Environment="PYTHONUNBUFFERED=1"
 
 [Install]
 WantedBy=multi-user.target

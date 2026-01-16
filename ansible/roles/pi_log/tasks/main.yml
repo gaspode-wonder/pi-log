@@ -2,8 +2,67 @@
 ---
 
 # --------------------------------------------------------------------
-# 0. Hard blow‑out: remove /opt/pi-log entirely, then recreate it clean
+# 0. HARD BLOW‑OUT: stop service, free serial, purge ALL code paths
 # --------------------------------------------------------------------
+
+- name: Stop pi-log service if running
+  ansible.builtin.systemd:
+    name: pi-log
+    state: stopped
+  failed_when: false
+  changed_when: false
+
+
+- name: Ensure MightyOhm serial device is not held open
+  ansible.builtin.command:
+    cmd: fuser -k /dev/mightyohm
+  register: pi_log_mightyohm_fuser_result
+  changed_when: pi_log_mightyohm_fuser_result.rc == 0
+  failed_when: false
+
+# --- CRITICAL: remove ANY system-level ghost modules -----------------
+
+- name: Remove global ghost modules (site-packages)
+  ansible.builtin.file:
+    path: /usr/local/lib/python3.11/site-packages/app
+    state: absent
+  failed_when: false
+  changed_when: false
+
+
+- name: Remove distro-level ghost modules (site-packages)
+  ansible.builtin.file:
+    path: /usr/lib/python3.11/site-packages/app
+    state: absent
+  failed_when: false
+  changed_when: false
+
+
+# --- CRITICAL: remove systemd drop-ins and cached fragments ----------
+
+- name: Remove systemd drop-in directory for pi-log
+  ansible.builtin.file:
+    path: /etc/systemd/system/pi-log.service.d
+    state: absent
+  failed_when: false
+  changed_when: false
+
+
+- name: Remove systemd unit override if present
+  ansible.builtin.file:
+    path: /etc/systemd/system/pi-log.service~
+    state: absent
+  failed_when: false
+  changed_when: false
+
+
+# --- CRITICAL: remove venv + app directory ---------------------------
+
+- name: Remove /opt/pi-log virtual environment
+  ansible.builtin.file:
+    path: /opt/pi-log/.venv
+    state: absent
+
 - name: Remove /opt/pi-log completely
   ansible.builtin.file:
     path: /opt/pi-log
@@ -20,6 +79,7 @@
 # --------------------------------------------------------------------
 # 1. Canonical repo sync — the ONLY sync
 # --------------------------------------------------------------------
+
 - name: Sync application source to /opt/pi-log
   ansible.posix.synchronize:
     src: "{{ playbook_dir | dirname }}/"
@@ -46,6 +106,7 @@
 # --------------------------------------------------------------------
 # 2. Config directory + config.toml
 # --------------------------------------------------------------------
+
 - name: Ensure config directory exists
   ansible.builtin.file:
     path: /etc/pi-log
@@ -64,22 +125,31 @@
   notify: Restart pi-log service
 
 # --------------------------------------------------------------------
-# 3. Virtual environment + dependencies
+# 3. Virtual environment + dependencies (rebuilt every time)
 # --------------------------------------------------------------------
+
 - name: Create virtual environment
   ansible.builtin.command:
     cmd: python3.11 -m venv /opt/pi-log/.venv
-    creates: /opt/pi-log/.venv/bin/activate
+  args:
+    creates: /opt/pi-log/.venv/bin/python3.11
 
-- name: Install Python dependencies
+- name: Upgrade pip inside virtual environment
+  ansible.builtin.pip:
+    name: pip
+    state: present
+    virtualenv: /opt/pi-log/.venv
+
+- name: Install Python dependencies into clean virtual environment
   ansible.builtin.pip:
     requirements: /opt/pi-log/requirements.txt
     virtualenv: /opt/pi-log/.venv
   notify: Restart pi-log service
 
 # --------------------------------------------------------------------
-# 4. Systemd service deployment
+# 4. Systemd service deployment (with forced reload)
 # --------------------------------------------------------------------
+
 - name: Deploy systemd service
   ansible.builtin.template:
     src: pi-log.service.j2
@@ -91,9 +161,51 @@
     - Reload systemd
     - Restart pi-log service
 
+# --- CRITICAL: force reload even if template task reports no change ---
+
+- name: Force systemd to reload units
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+# --------------------------------------------------------------------
+# 5. Ensure service enabled and started
+# --------------------------------------------------------------------
+
+- name: Ensure pi-log service is enabled and running
+  ansible.builtin.systemd:
+    name: pi-log
+    enabled: true
+    state: started
+
+# --------------------------------------------------------------------
+# 6. Post-deploy health check (basic, deterministic)
+# --------------------------------------------------------------------
+
+- name: Wait for pi-log process to be running
+  ansible.builtin.command:
+    cmd: pgrep -f "app.ingestion.geiger_reader"
+  register: pi_log_pgrep
+  retries: 10
+  delay: 3
+  until: pi_log_pgrep.rc == 0
+  failed_when: pi_log_pgrep.rc != 0
+
+- name: Confirm pi-log service is active
+  ansible.builtin.systemd:
+    name: pi-log
+    state: started
+  register: pi_log_systemd_status
+
+- name: Fail if pi-log service is not active
+  ansible.builtin.assert:
+    that:
+      - pi_log_systemd_status.status.ActiveState == "active"
+    fail_msg: "pi-log service is not active after deployment"
+
 # --------------------------------------------------------------------
 # Handlers
 # --------------------------------------------------------------------
+
 - name: Reload systemd
   ansible.builtin.systemd:
     daemon_reload: true

@@ -1,3 +1,4 @@
+# filename: Makefile
 # ------------------------------------------------------------
 # pi-log Unified Makefile (Python + Ansible + Pi Ops)
 # ------------------------------------------------------------
@@ -6,7 +7,7 @@ PI_HOST=beamrider-0001.local
 PI_USER=jeb
 
 ANSIBLE_DIR=ansible
-INVENTORY=$(ANSIBLE_DIR)/inventory.ini
+INVENTORY=$(ANSIBLE_DIR)/inventory
 PLAYBOOK=$(ANSIBLE_DIR)/deploy.yml
 ROLE_DIR=$(ANSIBLE_DIR)/roles/pi_log
 SERVICE=pi-log
@@ -30,6 +31,21 @@ help: ## Show help
 # ------------------------------------------------------------
 # Python environment
 # ------------------------------------------------------------
+
+dev: ## Full local development bootstrap (venv + deps + sanity checks)
+	rm -rf $(VENV)
+	$(PYTHON) -m venv $(VENV)
+	@echo ">>> Upgrading pip"
+	$(VENV)/bin/pip install --upgrade pip
+	@echo ">>> Installing all dependencies from requirements.txt"
+	$(VENV)/bin/pip install -r requirements.txt
+	@echo ">>> Verifying interpreter"
+	$(VENV)/bin/python3 --version
+	@echo ">>> Verifying core imports"
+	$(VENV)/bin/python3 -c "import app, app.ingestion.api_client, pytest, fastapi, requests; print('Imports OK')"
+	@echo ""
+	@echo "✔ Development environment ready"
+	@echo "Activate with: source $(VENV)/bin/activate"
 
 bootstrap: ## Create venv and install dependencies (first-time setup)
 	rm -rf $(VENV)
@@ -79,26 +95,27 @@ ci: clean-pyc check-venv ## Run full local CI suite (lint + typecheck + tests)
 # ------------------------------------------------------------
 
 check-ansible: ## Validate Ansible syntax, inventory, lint, and dry-run
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) --syntax-check
-	ansible-inventory -i $(INVENTORY) --list >/dev/null
+	# ansible.cfg defines 'inventory = $(INVENTORY)'
+	ansible-playbook $(PLAYBOOK) --syntax-check
+	ansible-inventory --list >/dev/null
 	ansible-lint $(ANSIBLE_DIR)
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOK) --check
+	ansible-playbook $(PLAYBOOK) --check
 
 deploy: ## Deploy to Raspberry Pi via Ansible
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOK)
+	ansible-playbook $(PLAYBOOK)
 
 # ------------------------------------------------------------
 # Pi service management
 # ------------------------------------------------------------
 
 restart: ## Restart pi-log service on the Pi
-	ansible beamrider-0001 -i $(INVENTORY) -m systemd -a "name=$(SERVICE) state=restarted"
+	ansible beamrider-0001 -m systemd -a "name=$(SERVICE) state=restarted"
 
 start: ## Start pi-log service
-	ansible beamrider-0001 -i $(INVENTORY) -m systemd -a "name=$(SERVICE) state=started"
+	ansible beamrider-0001 -m systemd -a "name=$(SERVICE) state=started"
 
 stop: ## Stop pi-log service
-	ansible beamrider-0001 -i $(INVENTORY) -m systemd -a "name=$(SERVICE) state=stopped"
+	ansible beamrider-0001 -m systemd -a "name=$(SERVICE) state=stopped"
 
 status: ## Show pi-log systemd status
 	ssh $(PI_USER)@$(PI_HOST) "systemctl status $(SERVICE)"
@@ -117,10 +134,10 @@ db-shell: ## Open SQLite shell on the Pi
 # ------------------------------------------------------------
 
 ping: ## Ping the Raspberry Pi via Ansible
-	ansible beamrider-0001 -i $(INVENTORY) -m ping
+	ansible beamrider-0001 -m ping
 
 hosts: ## Show parsed Ansible inventory
-	ansible-inventory -i $(INVENTORY) --list
+	ansible-inventory --list
 
 ssh: ## SSH into the Raspberry Pi
 	ssh $(PI_USER)@$(PI_HOST)
@@ -131,7 +148,7 @@ doctor: ## Run full environment + Pi health checks
 		[ -d ".venv" ] && echo "venv OK" || echo "venv missing"; echo ""
 	@echo "Checking Python dependencies..."; $(VENV)/bin/pip --version; echo ""
 	@echo "Checking Ansible..."; ansible --version; \
-		ansible-inventory -i $(INVENTORY) --list >/dev/null && echo "Inventory OK"; echo ""
+		ansible-inventory --list >/dev/null && echo "Inventory OK"; echo ""
 	@echo "Checking SSH connectivity..."; \
 		ssh -o BatchMode=yes -o ConnectTimeout=5 $(PI_USER)@$(PI_HOST) "echo SSH OK" || echo "SSH FAILED"; echo ""
 	@echo "Checking systemd service..."; \
@@ -145,24 +162,8 @@ clean: ## Remove virtual environment and Python cache files
 reset-pi: ## Wipe /opt/pi-log on the Pi and redeploy
 	ssh $(PI_USER)@$(PI_HOST) "sudo systemctl stop $(SERVICE) || true"
 	ssh $(PI_USER)@$(PI_HOST) "sudo rm -rf /opt/pi-log/*"
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOK)
+	ansible-playbook $(PLAYBOOK)
 	ssh $(PI_USER)@$(PI_HOST) "sudo systemctl restart $(SERVICE)"
-
-# ------------------------------------------------------------
-# Patch utilities
-# ------------------------------------------------------------
-
-apply-patch: ## Apply a patch: make apply-patch FILE=YYYYMMDD-slug.patch
-	@if [ -z "$(FILE)" ]; then \
-		echo "ERROR: You must specify FILE=<YYYYMMDD-slug.patch>"; exit 1; \
-	fi
-	git apply patches/$(FILE)
-
-diff: ## Generate a patch of uncommitted changes
-	@mkdir -p patches
-	@ts=$$(date +"%Y%m%d"); \
-		git diff > patches/$$ts-changes.patch; \
-		echo "Created patches/$$ts-changes.patch"
 
 # ------------------------------------------------------------
 # Delegation to ansible/Makefile (optional)

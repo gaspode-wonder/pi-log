@@ -1,9 +1,0 @@
-# requirements.yml for pi-log
-# Minimal, future-proof collection dependencies for Molecule + ansible-lint.
-
-collections:
-  - name: ansible.posix
-    version: "*"
-
-  - name: community.general
-    version: "*"
