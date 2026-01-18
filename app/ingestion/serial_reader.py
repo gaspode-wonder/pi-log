@@ -61,6 +61,6 @@ class SerialReader:
             except (KeyboardInterrupt, StopIteration):
                 break
 
-            except Exception as e:
-                logging.error(f"Error in serial loop: {e}")
+            except Exception as exc:
+                logging.error(f"Error in serial loop: {exc}")
                 time.sleep(0.1)
