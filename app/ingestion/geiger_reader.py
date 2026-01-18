@@ -6,7 +6,7 @@ import sys
 
 from app.ingestion.api_client import PushClient
 from app.ingestion.serial_reader import SerialReader
-
+from app.ingestion.watchdog import WatchdogSerialReader
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -44,10 +44,13 @@ def main() -> int:
     )
     logging.info(f"Device ID: {args.device_id}")
 
-    reader = SerialReader(
+    base_reader = SerialReader(
         device=args.device,
         baudrate=args.baudrate,
     )
+
+    reader = WatchdogSerialReader(base_reader)
+
 
     client = PushClient(
         api_url=args.api_url,
